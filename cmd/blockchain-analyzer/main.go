@@ -13,6 +13,7 @@ import (
 	"github.com/danhper/blockchain-analyzer/processor"
 	"github.com/danhper/blockchain-analyzer/tezos"
 	"github.com/danhper/blockchain-analyzer/xrp"
+	"github.com/danhper/blockchain-analyzer/hnt"
 	"github.com/urfave/cli/v2"
 )
 
@@ -289,6 +290,11 @@ func main() {
 				Name:        "xrp",
 				Usage:       "Analyze XRP data",
 				Subcommands: addCommonCommands(xrp.New(), nil),
+			},
+			{
+				Name:        "hnt",
+				Usage:       "Analyze Helium data",
+				Subcommands: addCommonCommands(hnt.New(), nil),
 			},
 		},
 	}
