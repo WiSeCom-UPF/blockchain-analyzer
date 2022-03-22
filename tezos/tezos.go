@@ -14,7 +14,7 @@ import (
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-const defaultRPCEndpoint string = "https://api.tezos.org.ua"
+const defaultRPCEndpoint string = "https://rpc.tzstats.com"
 
 type Tezos struct {
 	RPCEndpoint string

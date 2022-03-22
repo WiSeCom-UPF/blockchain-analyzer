@@ -20,13 +20,20 @@ type Helium struct {
 	RPCEndpoint string
 }
 
-func (t *Helium) makeRequest(client *http.Client, blockNumber uint64) (*http.Response, error) {
-	url := fmt.Sprintf("%s/chains/main/blocks/%d", t.RPCEndpoint, blockNumber)
-	return client.Get(url)
+func (h *Helium) makeRequest(client *http.Client, blockNumber uint64) (*http.Response, error) {
+	url := fmt.Sprintf("%s/v1/blocks/%d/transactions", h.RPCEndpoint, blockNumber)
+	req, _ := http.NewRequest("GET", url, nil)
+	// if err != nil {
+	// 	return 429, "TO-DO"
+	// }
+	// User agent added, for smooth Helium API access
+	req.Header.Set("User-Agent", "My User-Agent")
+
+	return client.Do(req)
 }
 
-func (t *Helium) FetchData(filepath string, start, end uint64) error {
-	context := fetcher.NewHTTPContext(start, end, t.makeRequest)
+func (h *Helium) FetchData(filepath string, start, end uint64) error {
+	context := fetcher.NewHTTPContext(start, end, h.makeRequest)
 	return fetcher.FetchHTTPData(filepath, context)
 }
 
@@ -65,7 +72,7 @@ func New() *Helium {
 	}
 }
 
-func (t *Helium) ParseBlock(rawLine []byte) (core.Block, error) {
+func (h *Helium) ParseBlock(rawLine []byte) (core.Block, error) {
 	var block Block
 	if err := json.Unmarshal(rawLine, &block); err != nil {
 		return nil, err
@@ -78,7 +85,7 @@ func (t *Helium) ParseBlock(rawLine []byte) (core.Block, error) {
 	return &block, nil
 }
 
-func (t *Helium) EmptyBlock() core.Block {
+func (h *Helium) EmptyBlock() core.Block {
 	return &Block{}
 }
 
