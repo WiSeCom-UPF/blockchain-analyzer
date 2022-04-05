@@ -14,6 +14,7 @@ import (
 	"github.com/danhper/blockchain-analyzer/tezos"
 	"github.com/danhper/blockchain-analyzer/xrp"
 	"github.com/danhper/blockchain-analyzer/helium"
+	"github.com/danhper/blockchain-analyzer/iotex"
 	"github.com/urfave/cli/v2"
 )
 
@@ -295,6 +296,11 @@ func main() {
 				Name:        "helium",
 				Usage:       "Analyze Helium data",
 				Subcommands: addCommonCommands(helium.New(), nil),
+			},
+			{
+				Name:        "iotex",
+				Usage:       "Analyze IoTeX data",
+				Subcommands: addCommonCommands(iotex.New(), nil),
 			},
 		},
 	}
