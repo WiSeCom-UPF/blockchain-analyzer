@@ -3,7 +3,12 @@ package helium
 import (
 	"fmt"
 	"net/http"
+	"io/ioutil"
+	"strings"
+	// "io"
 	"os"
+	// "reflect"
+	// "encoding/json"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -14,23 +19,70 @@ import (
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
+// const defaultRPCEndpoint string = "http://127.0.0.1:8080"
 const defaultRPCEndpoint string = "https://api.helium.io"
 
 type Helium struct {
 	RPCEndpoint string
 }
 
-func (h *Helium) makeRequest(client *http.Client, blockNumber uint64) (*http.Response, error) {
+
+func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, cursor string) (*http.Response, error) {
 	url := fmt.Sprintf("%s/v1/blocks/%d/transactions", h.RPCEndpoint, blockNumber)
+	
 	req, _ := http.NewRequest("GET", url, nil)
 	// if err != nil {
 	// 	return 429, "TO-DO"
 	// }
 	// User agent added, for smooth Helium API access
 	req.Header.Set("User-Agent", "My User-Agent")
+	resp, err := client.Do(req)
 
-	return client.Do(req)
+	// pr, pw := io.Pipe()
+	// defer pw.Close()
+	result_string := ""
+	if err == nil {
+		raw_bytes, _ := ioutil.ReadAll(resp.Body)
+		result_string += string(raw_bytes)
+		resp.Body = ioutil.NopCloser(strings.NewReader(string(raw_bytes)))
+
+		cursor_present, cursor_value := h.IsCursorPresent(string(raw_bytes))
+		for cursor_present {
+
+			url = fmt.Sprintf("%s/v1/blocks/%d/transactions?cursor=%s", h.RPCEndpoint, blockNumber, cursor_value)
+			
+			req, _ = http.NewRequest("GET", url, nil)
+			req.Header.Set("User-Agent", "My User-Agent")
+			resp, err = client.Do(req)
+			if err != nil {
+				return resp, err
+			}
+			
+			raw_bytes, _ := ioutil.ReadAll(resp.Body)			
+			result_string += string(raw_bytes)
+			cursor_present, cursor_value = h.IsCursorPresent(string(raw_bytes))
+		}
+		resp.Body = ioutil.NopCloser(strings.NewReader(string(result_string)))
+	}
+	return resp, err
 }
+
+func (h *Helium) makeRequest(client *http.Client, blockNumber uint64) (*http.Response, error) {
+	return h.makeRequestWithCursor(client, blockNumber, "")
+}
+
+func (h *Helium) IsCursorPresent(raw_stream string) (IsPresent bool, cursor string) {
+	var data map[string]interface{}
+	json.Unmarshal([]byte(raw_stream), &data)
+
+	// check if cursor is found
+	if data["cursor"] != nil {
+    	return true, data["cursor"].(string)
+	}
+
+	return false, ""
+}
+
 
 func (h *Helium) FetchData(filepath string, start, end uint64) error {
 	context := fetcher.NewHTTPContext(start, end, h.makeRequest)
