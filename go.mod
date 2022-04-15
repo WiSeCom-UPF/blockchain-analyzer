@@ -3,6 +3,7 @@ module github.com/danhper/blockchain-analyzer
 go 1.14
 
 require (
+	github.com/btcsuite/btcutil v1.0.2 // indirect
 	github.com/danhper/structomap v0.6.2
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/gorilla/websocket v1.4.2

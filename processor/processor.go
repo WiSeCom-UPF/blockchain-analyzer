@@ -79,7 +79,6 @@ func YieldBlocks(reader io.Reader, blockchain core.Blockchain, format FileFormat
 				log.Printf("could not parse: %s", err.Error())
 				continue
 			}
-
 			if block != nil {
 				blocks <- block
 			}
