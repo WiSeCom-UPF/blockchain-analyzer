@@ -21,7 +21,7 @@ func fetchBlockWithRetry(
 		result, err = ioutil.ReadAll(resp.Body)
 	}
 	if (err != nil || resp.StatusCode != 200) && retries > 0 {
-		log.Printf("error: %s (status %d), retrying", err.Error(), resp.StatusCode)
+		log.Printf("error: (status %d), retrying", resp.StatusCode)
 		time.Sleep(time.Second)
 		return fetchBlockWithRetry(client, context, blockNumber, retries-1)
 	}

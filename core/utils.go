@@ -80,10 +80,9 @@ func HexStringToDecimal(hexaString string) (uint64, error) {
 	output, err := strconv.ParseInt(numberStr, 16, 64)
 
 	if err != nil {
-	fmt.Println(err)
+		fmt.Println(err)
 		return 0, err
 	}
-	fmt.Println(output)
 	//return by converting int64 to uint64
 	return uint64(output), err  
 } 

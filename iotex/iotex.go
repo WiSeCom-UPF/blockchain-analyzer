@@ -4,7 +4,6 @@ import (
 	"os"
 	"fmt"
 	"time"
-	"io/ioutil"
 	"strings"
 	"net/http"
 
@@ -27,39 +26,39 @@ func (ix *Iotex) makeRequest(client *http.Client, blockNumber uint64) (*http.Res
 	// not using client, not useful
 	url := fmt.Sprintf("%s", ix.RPCEndpoint)
 	blockNumberHex := fmt.Sprintf("%016x",blockNumber)
-	payloadRaw := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["%s", false],"id":1}`, blockNumberHex)
+	payloadRaw := fmt.Sprintf(`{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["%s", true],"id":1}`, blockNumberHex)
 	payload := strings.NewReader(payloadRaw)
 	req, _ := http.NewRequest("POST", url, payload)
 
 	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-	return res, err
-	}
+	// if err != nil {
+	// 	return res, err
+	// }
 
-	apiRes, err := ix.makeRequestWebAPI(client, blockNumber)
-	if err != nil {
-		return apiRes, err
-	}
+	// apiRes, err := ix.makeRequestWebAPI(client, blockNumber)
+	// if err != nil {
+	// 	return apiRes, err
+	// }
 
-	bodyRPCAPI, _ := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return res, err
-	}
-	bodyRPCAPI_str := string(bodyRPCAPI)
-	bodyRPCAPI_str = strings.TrimSuffix(bodyRPCAPI_str, "}")
+	// bodyRPCAPI, _ := ioutil.ReadAll(res.Body)
+	// if err != nil {
+	// 	return res, err
+	// }
+	// bodyRPCAPI_str := string(bodyRPCAPI)
+	// bodyRPCAPI_str = strings.TrimSuffix(bodyRPCAPI_str, "}")
 
-	bodyWebAPI, _ := ioutil.ReadAll(apiRes.Body)
-	if err != nil {
-		return apiRes, err
-	}
-	bodyWebAPI_str := string(bodyWebAPI)
+	// bodyWebAPI, _ := ioutil.ReadAll(apiRes.Body)
+	// if err != nil {
+	// 	return apiRes, err
+	// }
+	// bodyWebAPI_str := string(bodyWebAPI)
 
-	index := strings.Index(bodyWebAPI_str,`"error":null,"meta":`)
-	apiData := `,"txns":` + bodyWebAPI_str[21:index-1]
+	// index := strings.Index(bodyWebAPI_str,`"error":null,"meta":`)
+	// apiData := `,"txns":` + bodyWebAPI_str[21:index-1]
 
-	appendedStr := bodyRPCAPI_str + apiData
+	// appendedStr := bodyRPCAPI_str + apiData
 
-	res.Body = ioutil.NopCloser(strings.NewReader(appendedStr))
+	// res.Body = ioutil.NopCloser(strings.NewReader(appendedStr))
 
 	return res, err
 }
@@ -104,27 +103,29 @@ func (ix *Iotex) FetchData(filepath string, start, end uint64) error {
 	return fetcher.FetchHTTPData(filepath, context)
 }
 
-type Content struct {
-	Kind        string
+type Transaction struct {
+	Hash     	string
+	Value		string
+	Amount      uint64	
+	Gas			string
+	ParsedGasLimit uint64 
+	Kind        string `json:"input"`
 	Source      string `json:"from"`
 	Destination string `json:"to"`
-	Amount      string
-}
-
-type Transaction struct {
-	Hash     string
-	Contents []Content
-}
+	}
 
 type BlockData struct {
-	Number     uint64
+	Size  			string
+	TotalTxnCount	uint64
+	Number     		string
 	Timestamp       string
 	ParsedTimestamp time.Time
-	Transactions []Transaction
+	ParsedNumber 	uint64
+	Transactions 	[]Transaction
 }
 
 type Block struct {
-	Result     BlockData
+	BlockData     BlockData `json:"result"`
 	// Transactions [][]Transaction
 	actions    []core.Action
 }
@@ -142,22 +143,52 @@ func New() *Iotex {
 
 func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 	var block Block
-	if err := json.Unmarshal(rawLine, &block); err != nil {
-		// fmt.Println(err)
+	var err error
+	if err = json.Unmarshal(rawLine, &block); err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
-	// convert hex string to decimal
-	timestamp, err := core.HexStringToDecimal(block.Result.Timestamp)
-	unixTimeUTC :=time.Unix(int64(timestamp), 0)
-	parsedTimeString := unixTimeUTC.Format(time.RFC3339)
+	
 	// convert from string to time.Time format
-	parsedTime, err := time.Parse(time.RFC3339, parsedTimeString)
+	block.BlockData.ParsedTimestamp, err = ix.ConvertStringTimestampToTime(block)
 	if err != nil {
 		return nil, err
 	}
 
-	block.Result.ParsedTimestamp = parsedTime
+	block.BlockData.ParsedNumber, err = core.HexStringToDecimal(block.BlockData.Number)
+	if err != nil {
+		return nil, err
+	}
+
+	block.BlockData.TotalTxnCount, err = core.HexStringToDecimal(block.BlockData.Size)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, txn := range block.BlockData.Transactions {
+		txn.Amount, err = core.HexStringToDecimal(txn.Value)
+		if err != nil {
+			return nil, err
+		}
+
+		txn.ParsedGasLimit, err = core.HexStringToDecimal(txn.Gas)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &block, nil
+}
+
+func (ix *Iotex) ConvertStringTimestampToTime(marshalledBlock Block) (time.Time, error) {
+	// convert hex string to decimal
+	timestamp, err := core.HexStringToDecimal(marshalledBlock.BlockData.Timestamp)
+	unixTimeUTC := time.Unix(int64(timestamp), 0)
+	parsedTimeString := unixTimeUTC.Format(time.RFC3339)
+	// convert from string to time.Time format
+	parsedTime, err := time.Parse(time.RFC3339, parsedTimeString)
+
+	return parsedTime, err
 }
 
 func (ix *Iotex) EmptyBlock() core.Block {
@@ -165,20 +196,15 @@ func (ix *Iotex) EmptyBlock() core.Block {
 }
 
 func (b *Block) Number() uint64 {
-	return b.Result.Number
+	return b.BlockData.ParsedNumber
 }
 
 func (b *Block) Time() time.Time {
-	return b.Result.ParsedTimestamp
+	return b.BlockData.ParsedTimestamp
 }
 
 func (b *Block) TransactionsCount() int {
-	total := 0
-	// for _, operations := range b.Transactions {
-	// 	total += len(operations)
-	// }
-	// fmt.Println(total)
-	return total
+	return len(b.BlockData.Transactions)
 }
 
 func (b *Block) ListActions() []core.Action {
@@ -197,14 +223,14 @@ func (b *Block) ListActions() []core.Action {
 	return result
 }
 
-func (c Content) Name() string {
-	return c.Kind
+func (t Transaction) Name() string {
+	return t.Kind
 }
 
-func (c Content) Receiver() string {
-	return c.Destination
+func (t Transaction) Receiver() string {
+	return t.Destination
 }
 
-func (c Content) Sender() string {
-	return c.Source
+func (t Transaction) Sender() string {
+	return t.Source
 }
