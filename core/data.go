@@ -306,14 +306,34 @@ func (g *GroupedActions) Result() interface{} {
 }
 
 type TransactionCounter int
+type EmptyBlockCounter int
+type ZeroTxnBlockCounter int
 
 func NewTransactionCounter() *TransactionCounter {
 	value := 0
 	return (*TransactionCounter)(&value)
 }
 
+func NewEmptyBlockCounter() *EmptyBlockCounter {
+	value := 0
+	return (*EmptyBlockCounter)(&value)
+}
+
+func NewZeroTxnBlockCounter() *ZeroTxnBlockCounter {
+	value := 0
+	return (*ZeroTxnBlockCounter)(&value)
+}
+
 func (t *TransactionCounter) AddBlock(block Block) {
 	*t += (TransactionCounter)(block.TransactionsCount())
+}
+
+func (ebc *EmptyBlockCounter) AddBlock(block Block) {
+	*ebc += (EmptyBlockCounter)(block.EmptyBlocksCount())
+}
+
+func (ztbc *ZeroTxnBlockCounter) AddBlock(block Block) {
+	*ztbc += (ZeroTxnBlockCounter)(block.ZeroTxnBlocksCount())
 }
 
 func (t *TransactionCounter) Result() interface{} {

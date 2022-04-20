@@ -1,16 +1,17 @@
 package core
 
 import (
-	"compress/gzip"
-	"fmt"
 	"io"
-	"log"
 	"os"
+	"log"
+	"fmt"
 	"sort"
+	"bytes"
 	"strconv"
 	"os/exec"
 	"strings"
-	"bytes"
+	"math/big"
+	"compress/gzip"
 )
 
 const (
@@ -85,6 +86,17 @@ func HexStringToDecimal(hexaString string) (uint64, error) {
 	}
 	//return by converting int64 to uint64
 	return uint64(output), err  
+}
+
+// convert hex such as , "0x5cd567" to decimal(uint64)
+func HexStringToDecimalIntBig(hexaString string) (*big.Int) {
+	// replace 0x or 0X with empty String 
+	numberStr := strings.Replace(hexaString, "0x", "", -1)
+	numberStr = strings.Replace(numberStr, "0X", "", -1)
+	i := new(big.Int)
+	i.SetString(numberStr, 16)
+	//return by converting int64 to uint64
+	return i  
 } 
 
 func MakeFileProcessor(f func(string) error) func(string) {

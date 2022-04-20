@@ -83,6 +83,18 @@ func (l *Ledger) TransactionsCount() int {
 	return len(l.Transactions)
 }
 
+// TO-DO
+func (l *Ledger) EmptyBlocksCount() int {
+	// not yet implemented
+	return 0
+}
+
+// TO-DO
+func (l *Ledger) ZeroTxnBlocksCount() int {
+	// // not yet implemented
+	return 0
+}
+
 func (l *Ledger) ListActions() []core.Action {
 	var actions []core.Action
 	for _, t := range l.Transactions {

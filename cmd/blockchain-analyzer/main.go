@@ -164,6 +164,36 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-empty-blocks",
+			Flags: addPatternFlag(addRangeFlags(nil, false)),
+			Usage: "Count the number of empty blocks in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				count, err := processor.CountEmptyBlocks(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("found %d empty blocks\n", count)
+				return nil
+			}),
+		},
+		{
+			Name:  "count-zero-txn-blocks",
+			Flags: addPatternFlag(addRangeFlags(nil, false)),
+			Usage: "Count the number of empty blocks in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				count, err := processor.CountZeroTxnBlocks(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("found %d zero transaction blocks\n", count)
+				return nil
+			}),
+		},
+		{
 			Name: "group-actions",
 			Flags: addDetailedFlag(addActionPropertyFlag(
 				addPatternFlag(addOutputFlag(addRangeFlags(nil, false))))),

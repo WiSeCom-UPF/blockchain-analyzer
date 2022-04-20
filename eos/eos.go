@@ -127,6 +127,18 @@ func (b *Block) TransactionsCount() int {
 	return len(b.Transactions)
 }
 
+// TO-DO
+func (b *Block) EmptyBlocksCount() int {
+	// not yet implemented
+	return 0
+}
+
+// TO-DO
+func (b *Block) ZeroTxnBlocksCount() int {
+	// // not yet implemented
+	return 0
+}
+
 func (b *Block) ListActions() []core.Action {
 	if len(b.actions) > 0 {
 		return b.actions

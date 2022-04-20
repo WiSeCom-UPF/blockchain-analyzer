@@ -214,6 +214,30 @@ func CountTransactions(blockchain core.Blockchain, globPattern string, start, en
 	return (int)(*txCounter), nil
 }
 
+func CountEmptyBlocks(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewEmptyBlockCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountZeroTxnBlocks(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewZeroTxnBlockCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
 func CountActionsOverTime(
 	blockchain core.Blockchain,
 	globPattern string,

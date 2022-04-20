@@ -6,6 +6,7 @@ import (
 	"time"
 	"strings"
 	"net/http"
+	"math/big"
 
 	jsoniter "github.com/json-iterator/go"
 
@@ -104,30 +105,34 @@ func (ix *Iotex) FetchData(filepath string, start, end uint64) error {
 }
 
 type Transaction struct {
-	Hash     	string
-	Value		string
-	Amount      uint64	
-	Gas			string
-	ParsedGasLimit uint64 
-	Kind        string `json:"input"`
-	Source      string `json:"from"`
-	Destination string `json:"to"`
+	Hash     			string  // from JSON data
+	Value				string  // from JSON data
+	Amount      		*big.Int
+	Gas					string  // from JSON data
+	ParsedGasLimit 		uint64
+	Kind        		string `json:"input"`  // from JSON data
+	Source      		string `json:"from"`  // from JSON data
+	Destination 		string `json:"to"`  // from JSON data
 	}
 
 type BlockData struct {
-	Size  			string
-	TotalTxnCount	uint64
-	Number     		string
-	Timestamp       string
-	ParsedTimestamp time.Time
-	ParsedNumber 	uint64
-	Transactions 	[]Transaction
+	Size  				string 	// from JSON data
+	TotalTxnCount		uint64
+	Number     			string 	// from JSON data
+	Timestamp       	string 	// from JSON data
+	ParsedTimestamp 	time.Time
+	ParsedNumber 		uint64
+	Transactions 		[]Transaction  // from JSON data
+	GovernanceTxns		uint64
+	GasUsed         	string  // from JSON data
+	GasUsedByBlock		uint64
 }
 
 type Block struct {
-	BlockData     BlockData `json:"result"`
-	// Transactions [][]Transaction
-	actions    []core.Action
+	BlockData	     	BlockData `json:"result"`  // from JSON data
+	actions    			[]core.Action
+	IsEmptyBlock		bool //  If block only contains 1 mandatory txn, i.e. block mining reward
+	ZeroTxnBlock		bool //  If no transafer or contract txn present
 }
 
 func New() *Iotex {
@@ -148,7 +153,7 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 		fmt.Println(err)
 		return nil, err
 	}
-	
+
 	// convert from string to time.Time format
 	block.BlockData.ParsedTimestamp, err = ix.ConvertStringTimestampToTime(block)
 	if err != nil {
@@ -160,24 +165,52 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 		return nil, err
 	}
 
+	// this count also includes governance transactions
 	block.BlockData.TotalTxnCount, err = core.HexStringToDecimal(block.BlockData.Size)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, txn := range block.BlockData.Transactions {
-		txn.Amount, err = core.HexStringToDecimal(txn.Value)
-		if err != nil {
-			return nil, err
-		}
+	txnsInBlock := uint64(len(block.BlockData.Transactions))
+	
+	// calculates the total number of Governance transaction inside the block
+	block.BlockData.GovernanceTxns = block.BlockData.TotalTxnCount - txnsInBlock - 1
 
-		txn.ParsedGasLimit, err = core.HexStringToDecimal(txn.Gas)
-		if err != nil {
-			return nil, err
-		}
+	block.BlockData.GasUsedByBlock, err = core.HexStringToDecimal(block.BlockData.GasUsed)
+	if err != nil {
+		return nil, err
 	}
 
-	return &block, nil
+	if 	txnsInBlock == 0 && block.BlockData.GovernanceTxns == 0 {
+		block.IsEmptyBlock = true
+	} else {
+		block.IsEmptyBlock = false
+	}
+
+	if txnsInBlock == 0 {
+		block.ZeroTxnBlock = true
+	} else {
+		block.ZeroTxnBlock = false
+	}
+
+	i := 0
+	for _, txn := range block.BlockData.Transactions {
+		block.BlockData.Transactions[i].Amount = core.HexStringToDecimalIntBig(txn.Value)
+
+		if txn.Kind == "0x" {
+			block.BlockData.Transactions[i].Kind = "Transfer"
+		} else {
+			block.BlockData.Transactions[i].Kind = "Contract"
+		}
+
+		block.BlockData.Transactions[i].ParsedGasLimit, err = core.HexStringToDecimal(txn.Gas)
+		if err != nil {
+			return nil, err
+		}
+		i = i+1
+	}
+	
+	return &block, err
 }
 
 func (ix *Iotex) ConvertStringTimestampToTime(marshalledBlock Block) (time.Time, error) {
@@ -207,18 +240,28 @@ func (b *Block) TransactionsCount() int {
 	return len(b.BlockData.Transactions)
 }
 
+func (b *Block) EmptyBlocksCount() int {
+	if b.IsEmptyBlock{
+		return 1	
+	}
+	return 0
+}
+
+func (b *Block) ZeroTxnBlocksCount() int {
+	if b.ZeroTxnBlock{
+		return 1
+	}
+	return 0
+}
+
 func (b *Block) ListActions() []core.Action {
 	if len(b.actions) > 0 {
 		return b.actions
 	}
 	var result []core.Action
-	// for _, operations := range b.Transactions {
-	// 	for _, operation := range operations {
-	// 		for _, content := range operation.Contents {
-	// 			result = append(result, content)
-	// 		}
-	// 	}
-	// }
+	for _, txn := range b.BlockData.Transactions {
+		result = append(result, txn)
+	}
 	b.actions = result
 	return result
 }
