@@ -116,12 +116,13 @@ type Transaction struct {
 	}
 
 type BlockData struct {
+	Miner               string `json:"author"`  // from JSON data
 	Size  				string 	// from JSON data
 	TotalTxnCount		uint64
 	Number     			string 	// from JSON data
 	Timestamp       	string 	// from JSON data
 	ParsedTimestamp 	time.Time
-	ParsedNumber 		uint64
+	ParsedNumber 		uint64  // block number in decimal
 	Transactions 		[]Transaction  // from JSON data
 	GovernanceTxns		uint64
 	GasUsed         	string  // from JSON data
@@ -131,8 +132,9 @@ type BlockData struct {
 type Block struct {
 	BlockData	     	BlockData `json:"result"`  // from JSON data
 	actions    			[]core.Action
-	IsEmptyBlock		bool //  If block only contains 1 mandatory txn, i.e. block mining reward
-	ZeroTxnBlock		bool //  If no transafer or contract txn present
+	IsEmptyBlock		bool //  if block only contains 1 mandatory txn, i.e. block mining reward
+	ZeroTxnBlock		bool //  if no transafer or contract txn present, may be governance
+	Uncles				[]string
 }
 
 func New() *Iotex {
@@ -209,7 +211,7 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 		}
 		i = i+1
 	}
-	
+
 	return &block, err
 }
 
@@ -240,12 +242,29 @@ func (b *Block) TransactionsCount() int {
 	return len(b.BlockData.Transactions)
 }
 
+func (b *Block) TransactionsCountByAddress(address string, by string) int {
+	txCounter := 0
+	for _, txn := range b.BlockData.Transactions {
+			if by == "sender" || by == "Sender"{
+				if txn.Source == address{
+					txCounter = txCounter + 1
+				}
+			} else if by == "receiver" || by == "Receiver" {
+				if txn.Destination == address{
+					txCounter = txCounter + 1
+			}
+		}
+	}
+	return txCounter
+}
+
 func (b *Block) EmptyBlocksCount() int {
 	if b.IsEmptyBlock{
 		return 1	
 	}
 	return 0
 }
+
 
 func (b *Block) ZeroTxnBlocksCount() int {
 	if b.ZeroTxnBlock{

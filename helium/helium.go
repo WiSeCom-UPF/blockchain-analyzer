@@ -158,6 +158,12 @@ func (b *Block) TransactionsCount() int {
 }
 
 // TO-DO
+func (b *Block) TransactionsCountByAddress(address string, by string) int {
+	// not yet implemented
+	return 0
+}
+
+// TO-DO
 func (b *Block) EmptyBlocksCount() int {
 	// not yet implemented
 	return 0

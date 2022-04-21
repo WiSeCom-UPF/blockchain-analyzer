@@ -82,6 +82,15 @@ func addPatternFlag(flags []cli.Flag) []cli.Flag {
 	})
 }
 
+func addAddressFlag(flags []cli.Flag) []cli.Flag {
+	return append(flags, &cli.StringFlag{
+		Name:     "address",
+		Value:    "",
+		Usage:    "address of EOA or a contract",
+		Required: false,
+	})
+}
+
 func addGroupDurationFlag(flags []cli.Flag) []cli.Flag {
 	return append(flags, &cli.StringFlag{
 		Name:    "duration",
@@ -155,6 +164,22 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountTransactions(
 					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("found %d transactions\n", count)
+				return nil
+			}),
+		},
+		{
+			Name:  "count-transactions-by-address",
+			Flags: addActionPropertyFlag(addAddressFlag(addPatternFlag(addRangeFlags(nil, false)))),
+			Usage: "Count the number of transactions in the data by address of either sender or recover",
+			Action: makeAction(func(c *cli.Context) error {
+				count, err := processor.CountTransactionsByAddress(
+					blockchain, c.String("pattern"),
+					c.String("address"), c.String("by"),
 					c.Uint64("start"), c.Uint64("end"))
 				if err != nil {
 					return err

@@ -13,6 +13,7 @@ type Blockchain interface {
 type Block interface {
 	Number() uint64
 	EmptyBlocksCount() int
+	TransactionsCountByAddress(string, string) int
 	ZeroTxnBlocksCount() int
 	TransactionsCount() int
 	Time() time.Time
