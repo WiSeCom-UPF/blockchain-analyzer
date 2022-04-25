@@ -238,6 +238,34 @@ func CountEmptyBlocks(blockchain core.Blockchain, globPattern string, start, end
 	return (int)(*txCounter), nil
 }
 
+func CountEmptyBlocksOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration,
+) (*core.TimeGroupedEmptyBlocks, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedEmptyBlocks(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountZeroTxnBlocksOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration,
+) (*core.TimeGroupedZeroTxnBlocks, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedZeroTxnBlocks(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
 func CountZeroTxnBlocks(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {

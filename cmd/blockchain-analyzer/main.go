@@ -191,7 +191,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-transactions-by-address-over-time",
 			Flags: addActionPropertyFlag(addGroupDurationFlag(addAddressFlag(addOutputFlag(addPatternFlag(addRangeFlags(nil, false)))))),
-			Usage: "Count the number of transactions in the data by address of either sender or recover",
+			Usage: "Count the number of transactions in the data by address of either sender or recover per fixed time interval",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {
@@ -223,9 +223,45 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-empty-blocks-over-time",
+			Flags: addPatternFlag(addGroupDurationFlag(addOutputFlag(addRangeFlags(nil, false)))),
+			Usage: "Count the number of empty blocks per fixed time interval in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				duration, err := time.ParseDuration(c.String("duration"))
+				if err != nil {
+					return err
+				}
+				counts, err := processor.CountEmptyBlocksOverTime(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"), duration)
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
+			Name:  "count-zero-txn-blocks-over-time",
+			Flags: addPatternFlag(addGroupDurationFlag(addOutputFlag(addRangeFlags(nil, false)))),
+			Usage: "Count the number of zero txn blocks per fixed time interval in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				duration, err := time.ParseDuration(c.String("duration"))
+				if err != nil {
+					return err
+				}
+				counts, err := processor.CountZeroTxnBlocksOverTime(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"), duration)
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
 			Name:  "count-zero-txn-blocks",
 			Flags: addPatternFlag(addRangeFlags(nil, false)),
-			Usage: "Count the number of empty blocks in the data",
+			Usage: "Count the number of zero txn blocks in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountZeroTxnBlocks(
 					blockchain, c.String("pattern"),

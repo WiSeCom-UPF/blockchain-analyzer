@@ -161,6 +161,54 @@ func (g *TimeGroupedActions) Result() interface{} {
 	return g
 }
 
+type TimeGroupedEmptyBlocks struct {
+	EmptyBlocks 	  map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedEmptyBlocks(duration time.Duration) *TimeGroupedEmptyBlocks {
+	return &TimeGroupedEmptyBlocks{
+		EmptyBlocks: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedEmptyBlocks) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.EmptyBlocks[group]; !ok {
+		g.EmptyBlocks[group] = 0
+	}
+	g.EmptyBlocks[group] += block.EmptyBlocksCount()
+}
+
+func (g *TimeGroupedEmptyBlocks) Result() interface{} {
+	return g
+}
+
+type TimeGroupedZeroTxnBlocks struct {
+	ZeroTxnBlocks 	  map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedZeroTxnBlocks(duration time.Duration) *TimeGroupedZeroTxnBlocks {
+	return &TimeGroupedZeroTxnBlocks{
+		ZeroTxnBlocks: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedZeroTxnBlocks) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.ZeroTxnBlocks[group]; !ok {
+		g.ZeroTxnBlocks[group] = 0
+	}
+	g.ZeroTxnBlocks[group] += block.ZeroTxnBlocksCount()
+}
+
+func (g *TimeGroupedZeroTxnBlocks) Result() interface{} {
+	return g
+}
+
 type TimeGroupedTransactionCount struct {
 	TransactionCounts map[time.Time]int
 	GroupedBy         time.Duration
