@@ -189,6 +189,25 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-transactions-by-address-over-time",
+			Flags: addActionPropertyFlag(addGroupDurationFlag(addAddressFlag(addOutputFlag(addPatternFlag(addRangeFlags(nil, false)))))),
+			Usage: "Count the number of transactions in the data by address of either sender or recover",
+			Action: makeAction(func(c *cli.Context) error {
+				duration, err := time.ParseDuration(c.String("duration"))
+				if err != nil {
+					return err
+				}
+				counts, err := processor.CountTransactionsByAddressOverTime(
+					blockchain, c.String("pattern"),
+					c.String("address"), c.String("by"),
+					c.Uint64("start"), c.Uint64("end"), duration)
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
 			Name:  "count-empty-blocks",
 			Flags: addPatternFlag(addRangeFlags(nil, false)),
 			Usage: "Count the number of empty blocks in the data",

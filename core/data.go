@@ -166,6 +166,32 @@ type TimeGroupedTransactionCount struct {
 	GroupedBy         time.Duration
 }
 
+type TimeGroupedTransactionCountByAddress struct {
+	Address           string
+	TransactionCounts map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedTransactionCountByAddress(duration time.Duration, address string) *TimeGroupedTransactionCountByAddress {
+	return &TimeGroupedTransactionCountByAddress{
+		Address:           address,
+		TransactionCounts: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedTransactionCountByAddress) AddBlock(block Block, address string, by string) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.TransactionCounts[group]; !ok {
+		g.TransactionCounts[group] = 0
+	}
+	g.TransactionCounts[group] += block.TransactionsCountByAddress(address, by)
+}
+
+func (g *TimeGroupedTransactionCountByAddress) Result() interface{} {
+	return g
+}
+
 func NewTimeGroupedTransactionCount(duration time.Duration) *TimeGroupedTransactionCount {
 	return &TimeGroupedTransactionCount{
 		TransactionCounts: make(map[time.Time]int),

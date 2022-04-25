@@ -281,6 +281,18 @@ func CountTransactionsOverTime(blockchain core.Blockchain, globPattern string,
 	return result, nil
 }
 
+func CountTransactionsByAddressOverTime(blockchain core.Blockchain, globPattern string, address string, by string, start, end uint64, duration time.Duration) (*core.TimeGroupedTransactionCountByAddress, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedTransactionCountByAddress(duration, address)
+	for block := range blocks {
+		result.AddBlock(block, address, by)
+	}
+	return result, nil
+}
+
 func GroupActions(blockchain core.Blockchain, globPattern string,
 	start, end uint64, by core.ActionProperty, detailed bool,
 ) (*core.GroupedActions, error) {
