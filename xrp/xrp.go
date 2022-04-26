@@ -101,6 +101,11 @@ func (l *Ledger) ZeroTxnBlocksCount() int {
 	return 0
 }
 
+func (l *Ledger) GetMiner() string {
+	// // not yet implemented
+	return ""
+}
+
 func (l *Ledger) ListActions() []core.Action {
 	var actions []core.Action
 	for _, t := range l.Transactions {

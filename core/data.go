@@ -161,6 +161,50 @@ func (g *TimeGroupedActions) Result() interface{} {
 	return g
 }
 
+type MiningHistoryCount struct {
+	MiningHistoryCounts map[string]int
+}
+
+func NewMiningHistoryCount() *MiningHistoryCount {
+	return &MiningHistoryCount{
+		MiningHistoryCounts: make(map[string]int),
+	}
+}
+
+func (mh *MiningHistoryCount) AddBlock(block Block) {
+	miner := block.GetMiner()
+	mh.MiningHistoryCounts[miner] += 1
+}
+
+func (mh *MiningHistoryCount) Result() interface{} {
+	return mh
+}
+
+type TimeGroupedMiningHistoryCount struct {
+	MinerGroupByTime   map[time.Time]*MiningHistoryCount
+	Duration  		   time.Duration
+}
+
+func NewMiningHistoryCountOverTime(duration time.Duration) *TimeGroupedMiningHistoryCount {
+	return &TimeGroupedMiningHistoryCount{
+		MinerGroupByTime: 	make(map[time.Time]*MiningHistoryCount),
+		Duration:			duration,
+	}
+}
+
+func (tmh *TimeGroupedMiningHistoryCount) AddBlock(block Block) {
+	group := block.Time().Truncate(tmh.Duration)
+	if _, ok := tmh.MinerGroupByTime[group]; !ok {
+		tmh.MinerGroupByTime[group] = NewMiningHistoryCount()
+	}
+	tmh.MinerGroupByTime[group].AddBlock(block)
+}
+
+func (tmh *TimeGroupedMiningHistoryCount) Result() interface{} {
+	return tmh
+}
+
+
 type TimeGroupedEmptyBlocks struct {
 	EmptyBlocks 	  map[time.Time]int
 	GroupedBy         time.Duration

@@ -175,6 +175,11 @@ func (b *Block) ZeroTxnBlocksCount() int {
 	return 0
 }
 
+func (b *Block) GetMiner() string {
+	// // not yet implemented
+	return ""
+}
+
 func (b *Block) ListActions() []core.Action {
 	if len(b.actions) > 0 {
 		return b.actions

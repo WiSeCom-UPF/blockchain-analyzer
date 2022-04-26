@@ -309,6 +309,30 @@ func CountTransactionsOverTime(blockchain core.Blockchain, globPattern string,
 	return result, nil
 }
 
+func CountMiningHistory(blockchain core.Blockchain, globPattern string, start, end uint64) (*core.MiningHistoryCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewMiningHistoryCount()
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountMiningHistoryOverTime(blockchain core.Blockchain, globPattern string, start, end uint64, duration time.Duration) (*core.TimeGroupedMiningHistoryCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewMiningHistoryCountOverTime(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
 func CountTransactionsByAddressOverTime(blockchain core.Blockchain, globPattern string, address string, by string, start, end uint64, duration time.Duration) (*core.TimeGroupedTransactionCountByAddress, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {

@@ -336,6 +336,42 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-mining-history",
+			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+			Usage: "Count the miner history as per number of blocks produced",
+			Action: makeAction(func(c *cli.Context) error {
+				// duration, err := time.ParseDuration(c.String("duration"))
+				// if err != nil {
+				// 	return err
+				// }
+				counts, err := processor.CountMiningHistory(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
+			Name:  "count-mining-history-over-time",
+			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+			Usage: "Count the miner history as per number of blocks produced over time",
+			Action: makeAction(func(c *cli.Context) error {
+				duration, err := time.ParseDuration(c.String("duration"))
+				if err != nil {
+					return err
+				}
+				counts, err := processor.CountMiningHistoryOverTime(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"), duration)
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
 			Name:  "bulk-process",
 			Flags: addConfigFlag(addOutputFlag(nil)),
 			Usage: "Bulk process the data according to the given configuration file",

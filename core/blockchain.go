@@ -17,6 +17,7 @@ type Block interface {
 	ZeroTxnBlocksCount() int
 	TransactionsCount() int
 	Time() time.Time
+	GetMiner() string
 	ListActions() []Action
 }
 

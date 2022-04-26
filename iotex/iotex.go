@@ -174,7 +174,7 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 	}
 
 	txnsInBlock := uint64(len(block.BlockData.Transactions))
-	
+
 	// calculates the total number of Governance transaction inside the block
 	block.BlockData.GovernanceTxns = block.BlockData.TotalTxnCount - txnsInBlock - 1
 
@@ -271,6 +271,10 @@ func (b *Block) ZeroTxnBlocksCount() int {
 		return 1
 	}
 	return 0
+}
+
+func (b *Block) GetMiner() string {
+	return b.BlockData.Miner
 }
 
 func (b *Block) ListActions() []core.Action {
