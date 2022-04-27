@@ -258,6 +258,11 @@ type TimeGroupedTransactionCount struct {
 	GroupedBy         time.Duration
 }
 
+type TimeGroupedSCCount struct {
+	SCCounts 		  map[time.Time]int
+	GroupedBy         time.Duration
+}
+
 type TimeGroupedTransactionCountByAddress struct {
 	Address           string
 	TransactionCounts map[time.Time]int
@@ -301,6 +306,25 @@ func (g *TimeGroupedTransactionCount) AddBlock(block Block) {
 
 func (g *TimeGroupedTransactionCount) Result() interface{} {
 	return g
+}
+
+func NewTimeGroupedSCCount(duration time.Duration) *TimeGroupedSCCount {
+	return &TimeGroupedSCCount{
+		SCCounts: 		   make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (sc *TimeGroupedSCCount) AddBlock(block Block) {
+	group := block.Time().Truncate(sc.GroupedBy)
+	if _, ok := sc.SCCounts[group]; !ok {
+		sc.SCCounts[group] = 0
+	}
+	sc.SCCounts[group] += block.SCCount()
+}
+
+func (sc *TimeGroupedSCCount) Result() interface{} {
+	return sc
 }
 
 type ActionGroup struct {
@@ -424,6 +448,7 @@ func (g *GroupedActions) Result() interface{} {
 }
 
 type TransactionCounter int
+type SCCounter int
 type TransactionCounterByAddress int
 type EmptyBlockCounter int
 type ZeroTxnBlockCounter int
@@ -431,6 +456,11 @@ type ZeroTxnBlockCounter int
 func NewTransactionCounter() *TransactionCounter {
 	value := 0
 	return (*TransactionCounter)(&value)
+}
+
+func NewSCCounter() *SCCounter {
+	value := 0
+	return (*SCCounter)(&value)
 }
 
 func NewTransactionCounterByAddress() *TransactionCounterByAddress {
@@ -450,6 +480,14 @@ func NewZeroTxnBlockCounter() *ZeroTxnBlockCounter {
 
 func (t *TransactionCounter) AddBlock(block Block) {
 	*t += (TransactionCounter)(block.TransactionsCount())
+}
+
+func (sc *SCCounter) AddBlock(block Block) {
+	*sc += (SCCounter)(block.SCCount())
+}
+
+func (sc *SCCounter) Result() interface{} {
+	return sc
 }
 
 func (t *TransactionCounterByAddress) AddBlock(block Block, address string, by string) {

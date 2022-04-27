@@ -84,6 +84,12 @@ func (l *Ledger) TransactionsCount() int {
 }
 
 // TO-DO
+func (l *Ledger) SCCount() int {
+	// not yet implemented
+	return 0
+}
+
+// TO-DO
 func (l *Ledger) TransactionsCountByAddress(address string, by string) int {
 	// not yet implemented
 	return 0

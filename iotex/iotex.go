@@ -113,6 +113,7 @@ type Transaction struct {
 	Kind        		string `json:"input"`  // from JSON data
 	Source      		string `json:"from"`  // from JSON data
 	Destination 		string `json:"to"`  // from JSON data
+	SmartContractCreated		string `json:"creates"`  // from JSON data
 	}
 
 type BlockData struct {
@@ -240,6 +241,16 @@ func (b *Block) Time() time.Time {
 
 func (b *Block) TransactionsCount() int {
 	return len(b.BlockData.Transactions)
+}
+
+func (b *Block) SCCount() int {
+	counter := 0
+	for _, txn := range b.BlockData.Transactions {
+		if txn.Destination == "" {
+			counter += 1
+		}
+	}
+	return counter
 }
 
 func (b *Block) TransactionsCountByAddress(address string, by string) int {

@@ -214,6 +214,18 @@ func CountTransactions(blockchain core.Blockchain, globPattern string, start, en
 	return (int)(*txCounter), nil
 }
 
+func CountSCCreated(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	scCounter := core.NewSCCounter()
+	for block := range blocks {
+		scCounter.AddBlock(block)
+	}
+	return (int)(*scCounter), nil
+}
+
 func CountTransactionsByAddress(blockchain core.Blockchain, globPattern string, address string, by string, start, end uint64) (int, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {
@@ -303,6 +315,20 @@ func CountTransactionsOverTime(blockchain core.Blockchain, globPattern string,
 		return nil, err
 	}
 	result := core.NewTimeGroupedTransactionCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountSCCreatedOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration,
+) (*core.TimeGroupedSCCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedSCCount(duration)
 	for block := range blocks {
 		result.AddBlock(block)
 	}

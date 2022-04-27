@@ -99,6 +99,12 @@ func (b *Block) TransactionsCount() int {
 }
 
 // TO-DO
+func (b *Block) SCCount() int {
+	// not yet implemented
+	return 0
+}
+
+// TO-DO
 func (b *Block) EmptyBlocksCount() int {
 	// not yet implemented
 	return 0

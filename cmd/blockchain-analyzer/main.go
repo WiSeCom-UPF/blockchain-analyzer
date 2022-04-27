@@ -173,6 +173,39 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-sc-created",
+			Flags: addPatternFlag(addRangeFlags(nil, false)),
+			Usage: "Count the number of smart contracts created in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				count, err := processor.CountSCCreated(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("found %d transactions\n", count)
+				return nil
+			}),
+		},
+		{
+			Name:  "count-sc-created-over-time",
+			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+			Usage: "Count number of smart contracts created over time in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				duration, err := time.ParseDuration(c.String("duration"))
+				if err != nil {
+					return err
+				}
+				counts, err := processor.CountSCCreatedOverTime(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"), duration)
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
 			Name:  "count-transactions-by-address",
 			Flags: addActionPropertyFlag(addAddressFlag(addPatternFlag(addRangeFlags(nil, false)))),
 			Usage: "Count the number of transactions in the data by address of either sender or recover",
