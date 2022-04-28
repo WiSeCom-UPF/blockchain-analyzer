@@ -384,3 +384,17 @@ func GroupActions(blockchain core.Blockchain, globPattern string,
 	}
 	return groupedActions, nil
 }
+
+func OneToOneCount(blockchain core.Blockchain, globPattern string,
+	start, end uint64) (*core.OneToOneTxnMap, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	oneToOneCount := core.NewOneToOneMap()
+	for block := range blocks {
+		oneToOneCount.AddBlock(block)
+	}
+	return oneToOneCount, nil
+}
+

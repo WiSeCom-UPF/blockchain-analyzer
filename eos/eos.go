@@ -128,6 +128,12 @@ func (b *Block) TransactionsCount() int {
 }
 
 // TO-DO
+func (b *Block) GetTxnP2Plist() [] string {
+	// not yet implemented
+	return nil
+}
+
+// TO-DO
 func (b *Block) SCCount() int {
 	// not yet implemented
 	return 0

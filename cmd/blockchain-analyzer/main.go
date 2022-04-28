@@ -387,6 +387,21 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name: "count-one-to-one-txns",
+			Flags: addActionPropertyFlag(
+				addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+			Usage: "Count and groups the number of \"actions\" in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				counts, err := processor.OneToOneCount(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
 			Name:  "count-mining-history-over-time",
 			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
 			Usage: "Count the miner history as per number of blocks produced over time",

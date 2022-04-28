@@ -16,6 +16,7 @@ type Block interface {
 	TransactionsCountByAddress(string, string) int
 	ZeroTxnBlocksCount() int
 	TransactionsCount() int
+	GetTxnP2Plist() []string
 	SCCount() int
 	Time() time.Time
 	GetMiner() string

@@ -76,6 +76,60 @@ type ActionsCount struct {
 	TotalCount  uint64
 }
 
+type OneToOneStatsData struct {
+	TotalOps			uint64
+	ValueTransferCount	uint64
+	SCTxnsCount			uint64
+}
+
+func NewOneToOneDataStats() *OneToOneStatsData {
+	return &OneToOneStatsData{
+		TotalOps: 0,
+		ValueTransferCount: 0,
+		SCTxnsCount: 0,
+	}
+}
+
+type OneToOneTxnMap struct {
+	TxnOneToOne		map[string]*OneToOneStatsData
+}
+
+func NewOneToOneMap() *OneToOneTxnMap {
+	return &OneToOneTxnMap{
+		TxnOneToOne: make(map[string]*OneToOneStatsData),
+	}
+}
+
+
+func (o2o *OneToOneTxnMap) AddBlock(block Block) {
+	txnLen := block.TransactionsCount()
+	txnData := make([]string, 2*txnLen)
+	txnData = block.GetTxnP2Plist()
+	key := ""
+	txnKind := ""
+	i := 0
+
+	for  ; i < 2 *txnLen; {
+		key = txnData[i]
+		txnKind = txnData[i+1]
+		// fmt.Println(txnKind)
+		oneToOneStat, ok := o2o.TxnOneToOne[key]
+
+		if !ok {
+			oneToOneStat = NewOneToOneDataStats()
+			o2o.TxnOneToOne[key] = oneToOneStat
+		}
+
+		o2o.TxnOneToOne[key].TotalOps += 1
+		if txnKind == "Contract" {
+			o2o.TxnOneToOne[key].SCTxnsCount += 1
+		} else {
+			o2o.TxnOneToOne[key].ValueTransferCount += 1
+		}
+		i += 2
+	}
+}
+
 func NewActionsCount() *ActionsCount {
 	return &ActionsCount{
 		Actions: make(map[string]uint64),

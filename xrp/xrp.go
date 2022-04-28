@@ -84,6 +84,12 @@ func (l *Ledger) TransactionsCount() int {
 }
 
 // TO-DO
+func (l *Ledger) GetTxnP2Plist() [] string {
+	// not yet implemented
+	return nil
+}
+
+// TO-DO
 func (l *Ledger) SCCount() int {
 	// not yet implemented
 	return 0

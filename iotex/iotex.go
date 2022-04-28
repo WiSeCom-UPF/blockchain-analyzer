@@ -243,6 +243,23 @@ func (b *Block) TransactionsCount() int {
 	return len(b.BlockData.Transactions)
 }
 
+func (b *Block) GetTxnP2Plist() []string {
+	p2pTxnData := make([]string, 2 * len(b.BlockData.Transactions))
+	txnKey 	:= ""
+	txnKind := ""
+	// counter to iterate over p2pTxnData array
+	i := 0
+	for _, txn := range b.BlockData.Transactions {
+		txnKey = txn.Sender() + " TO " + txn.Receiver()
+		txnKind = txn.Name()
+		p2pTxnData[i] = txnKey
+		i +=1
+		p2pTxnData[i] = txnKind
+		i +=1
+	}
+	return p2pTxnData
+}
+
 func (b *Block) SCCount() int {
 	counter := 0
 	for _, txn := range b.BlockData.Transactions {
