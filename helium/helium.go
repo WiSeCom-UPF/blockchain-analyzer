@@ -45,12 +45,18 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 		raw_bytes, _ := ioutil.ReadAll(resp.Body)
 		result_string += string(raw_bytes)
 		resp.Body = ioutil.NopCloser(strings.NewReader(string(raw_bytes)))
+		raw_bytes1, _ := ioutil.ReadAll(resp.Body)
+		if len(raw_bytes1) < 20	 {
+			payloadstr := fmt.Sprintf(`{"height": %d, "isEmpty" : "true"}`, blockNumber)
+			resp.Body = ioutil.NopCloser(strings.NewReader(string(payloadstr)))
+			return resp, nil
+		} 
 
 		cursor_present, cursor_value := h.IsCursorPresent(string(raw_bytes))
 		for cursor_present {
 
 			url = fmt.Sprintf("%s/v1/blocks/%d/transactions?cursor=%s", h.RPCEndpoint, blockNumber, cursor_value)
-			
+			time.Sleep(time.Second)
 			req, _ = http.NewRequest("GET", url, nil)
 			req.Header.Set("User-Agent", "My User-Agent")
 			resp, err = client.Do(req)
