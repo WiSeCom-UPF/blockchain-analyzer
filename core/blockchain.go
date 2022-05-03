@@ -17,7 +17,7 @@ type Block interface {
 	ZeroTxnBlocksCount() int
 	TransactionsCount() int
 	GetTxnP2Plist() []string
-	SCCount() int
+	SCCount(string) (int, []string)
 	Time() time.Time
 	GetMiner() string
 	ListActions() []Action

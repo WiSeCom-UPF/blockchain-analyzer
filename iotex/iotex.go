@@ -110,6 +110,8 @@ type Transaction struct {
 	Amount      		*big.Int
 	Gas					string  // from JSON data
 	ParsedGasLimit 		uint64
+	SCSign				string
+	TokenCount			uint64
 	Kind        		string `json:"input"`  // from JSON data
 	Source      		string `json:"from"`  // from JSON data
 	Destination 		string `json:"to"`  // from JSON data
@@ -203,6 +205,18 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 		if txn.Kind == "0x" {
 			block.BlockData.Transactions[i].Kind = "Transfer"
 		} else {
+			if block.BlockData.Transactions[i].SmartContractCreated == "" {
+				inputLen := len(block.BlockData.Transactions[i].Kind)
+				block.BlockData.Transactions[i].SCSign = block.BlockData.Transactions[i].Kind[:10]
+				if inputLen > 10 {
+					block.BlockData.Transactions[i].TokenCount, err = core.HexStringToDecimal(block.BlockData.Transactions[i].Kind[inputLen-9:])
+				}
+				if err != nil {
+					fmt.Println(txn.Hash)
+				}
+			// fmt.Println(block.BlockData.Transactions[i].TokenCount, block.BlockData.Transactions[i].SCSign, block.BlockData.Transactions[i].SmartContractCreated)
+			}
+
 			block.BlockData.Transactions[i].Kind = "Contract"
 		}
 
@@ -260,14 +274,26 @@ func (b *Block) GetTxnP2Plist() []string {
 	return p2pTxnData
 }
 
-func (b *Block) SCCount() int {
+func (b *Block) SCCount(by string) (int, []string) {
 	counter := 0
-	for _, txn := range b.BlockData.Transactions {
-		if txn.Destination == "" {
-			counter += 1
+	SCSignCounter := []string{}
+	if by == "" {
+		for _, txn := range b.BlockData.Transactions {
+			if txn.Destination == "" {
+				counter += 1
+			}
+		}
+	} else {
+		for _, txn := range b.BlockData.Transactions {
+			if txn.Destination == "" {
+				counter += 1
+			}
+			if txn.Kind == "Contract" && txn.SmartContractCreated == "" {
+				SCSignCounter = append(SCSignCounter, txn.SCSign )
+			}
 		}
 	}
-	return counter
+	return counter, SCSignCounter
 }
 
 func (b *Block) TransactionsCountByAddress(address string, by string) int {

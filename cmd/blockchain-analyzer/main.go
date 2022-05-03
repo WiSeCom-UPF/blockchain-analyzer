@@ -173,18 +173,18 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
-			Name:  "count-sc-created",
-			Flags: addPatternFlag(addRangeFlags(nil, false)),
+			Name:  "count-sc-stats",
+			Flags: addOutputFlag(addActionPropertyFlag(addPatternFlag(addRangeFlags(nil, false)))),
 			Usage: "Count the number of smart contracts created in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountSCCreated(
 					blockchain, c.String("pattern"),
-					c.Uint64("start"), c.Uint64("end"))
+					c.Uint64("start"), c.Uint64("end"), c.String("by"))
 				if err != nil {
 					return err
 				}
-				fmt.Printf("found %d transactions\n", count)
-				return nil
+				fmt.Printf("found %d SC created and %d unique function Signatures \n", count.SCCreated, len(count.SCSignMap))
+				return core.Persist(count, c.String("output"))
 			}),
 		},
 		{

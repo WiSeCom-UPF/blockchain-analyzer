@@ -374,7 +374,8 @@ func (sc *TimeGroupedSCCount) AddBlock(block Block) {
 	if _, ok := sc.SCCounts[group]; !ok {
 		sc.SCCounts[group] = 0
 	}
-	sc.SCCounts[group] += block.SCCount()
+	tempValue, _ := block.SCCount("")
+	sc.SCCounts[group] += tempValue
 }
 
 func (sc *TimeGroupedSCCount) Result() interface{} {
@@ -502,7 +503,10 @@ func (g *GroupedActions) Result() interface{} {
 }
 
 type TransactionCounter int
-type SCCounter int
+type SCCounter struct {
+	SCCreated    	int
+	SCSignMap		map[string]uint64
+}
 type TransactionCounterByAddress int
 type EmptyBlockCounter int
 type ZeroTxnBlockCounter int
@@ -513,8 +517,10 @@ func NewTransactionCounter() *TransactionCounter {
 }
 
 func NewSCCounter() *SCCounter {
-	value := 0
-	return (*SCCounter)(&value)
+	return &SCCounter{
+		SCCreated: 0,
+		SCSignMap: make(map[string]uint64),
+	}
 }
 
 func NewTransactionCounterByAddress() *TransactionCounterByAddress {
@@ -536,8 +542,17 @@ func (t *TransactionCounter) AddBlock(block Block) {
 	*t += (TransactionCounter)(block.TransactionsCount())
 }
 
-func (sc *SCCounter) AddBlock(block Block) {
-	*sc += (SCCounter)(block.SCCount())
+func (sc *SCCounter) AddBlock(block Block, by string) {
+	if by == ""{
+		tempCounter, _ := block.SCCount("")
+		sc.SCCreated += tempCounter 
+	} else {
+		tempCounter, tempSlice := block.SCCount(by)
+		sc.SCCreated += tempCounter 
+		for _, item := range tempSlice{
+			sc.SCSignMap[item] += 1
+		}
+	}
 }
 
 func (sc *SCCounter) Result() interface{} {

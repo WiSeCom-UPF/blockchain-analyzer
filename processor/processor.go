@@ -214,16 +214,16 @@ func CountTransactions(blockchain core.Blockchain, globPattern string, start, en
 	return (int)(*txCounter), nil
 }
 
-func CountSCCreated(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+func CountSCCreated(blockchain core.Blockchain, globPattern string, start, end uint64, by string) (*core.SCCounter, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	scCounter := core.NewSCCounter()
 	for block := range blocks {
-		scCounter.AddBlock(block)
+		scCounter.AddBlock(block, by)
 	}
-	return (int)(*scCounter), nil
+	return scCounter, nil
 }
 
 func CountTransactionsByAddress(blockchain core.Blockchain, globPattern string, address string, by string, start, end uint64) (int, error) {

@@ -170,9 +170,9 @@ func (b *Block) GetTxnP2Plist() []string {
 }
 
 // TO-DO
-func (b *Block) SCCount() int {
+func (b *Block) SCCount(by string) (int, []string) {
 	// not yet implemented
-	return 0
+	return 0, nil
 }
 
 // TO-DO

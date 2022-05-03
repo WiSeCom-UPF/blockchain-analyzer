@@ -90,9 +90,9 @@ func (l *Ledger) GetTxnP2Plist() [] string {
 }
 
 // TO-DO
-func (l *Ledger) SCCount() int {
+func (l *Ledger) SCCount(by string) (int, []string) {
 	// not yet implemented
-	return 0
+	return 0, nil
 }
 
 // TO-DO
