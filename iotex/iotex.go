@@ -205,17 +205,18 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 		} else {
 			if txn.SmartContractCreated == "" {
 				inputLen := len(txn.Kind)
-				if inputLen > 10 {
-					block.BlockData.Transactions[i].SCSign = txn.Kind[0:10]
+				if inputLen == 10 {
+					block.BlockData.Transactions[i].SCSign = txn.Kind[:10]
+				} else if inputLen >= 10 {
+					block.BlockData.Transactions[i].SCSign = txn.Kind[:10]
 					block.BlockData.Transactions[i].TokenCount, err = core.HexStringToDecimal(txn.Kind[inputLen-9:])
-				} else if inputLen < 10 {
+				}else if inputLen < 10 {
 					block.BlockData.Transactions[i].SCSign = "NA"
 				}
 
 				if err != nil {
 					fmt.Println(txn.Hash)
 				}
-			// fmt.Println(block.BlockData.Transactions[i].TokenCount, block.BlockData.Transactions[i].SCSign, block.BlockData.Transactions[i].SmartContractCreated)
 			}
 
 			block.BlockData.Transactions[i].Kind = "Contract"
