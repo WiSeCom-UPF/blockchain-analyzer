@@ -548,9 +548,11 @@ func (sc *SCCounter) AddBlock(block Block, by string) {
 		sc.SCCreated += tempCounter 
 	} else {
 		tempCounter, tempSlice := block.SCCount(by)
-		sc.SCCreated += tempCounter 
-		for _, item := range tempSlice{
-			sc.SCSignMap[item] += 1
+		sc.SCCreated += tempCounter
+		if len(tempSlice) > 0 {
+			for _, item := range tempSlice{
+				sc.SCSignMap[item] += 1
+			}
 		}
 	}
 }
