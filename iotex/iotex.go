@@ -205,7 +205,7 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 		} else {
 			if txn.SmartContractCreated == "" {
 				inputLen := len(txn.Kind)
-				if inputLen >= 10 {
+				if inputLen > 10 {
 					block.BlockData.Transactions[i].SCSign = txn.Kind[0:10]
 					block.BlockData.Transactions[i].TokenCount, err = core.HexStringToDecimal(txn.Kind[inputLen-9:])
 				} else if inputLen < 10 {
