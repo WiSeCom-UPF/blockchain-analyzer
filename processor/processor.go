@@ -214,6 +214,18 @@ func CountTransactions(blockchain core.Blockchain, globPattern string, start, en
 	return (int)(*txCounter), nil
 }
 
+func CountGovTransactions(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	govTxCounter := core.NewGovernanceCounter()
+	for block := range blocks {
+		govTxCounter.AddBlock(block)
+	}
+	return (int)(*govTxCounter), nil
+}
+
 func CountSCCreated(blockchain core.Blockchain, globPattern string, start, end uint64, by string) (*core.SCCounter, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {

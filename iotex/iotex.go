@@ -259,6 +259,10 @@ func (b *Block) TransactionsCount() int {
 	return len(b.BlockData.Transactions)
 }
 
+func (b *Block) GovernanceTransactionsCount() int {
+	return int(b.BlockData.GovernanceTxns)
+}
+
 func (b *Block) GetTxnP2Plist() []string {
 	p2pTxnData := make([]string, 2 * len(b.BlockData.Transactions))
 	txnKey 	:= ""

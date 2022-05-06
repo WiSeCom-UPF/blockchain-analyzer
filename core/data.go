@@ -503,6 +503,7 @@ func (g *GroupedActions) Result() interface{} {
 }
 
 type TransactionCounter int
+type GovernanceCounter int
 type SCCounter struct {
 	SCCreated    	int
 	SCSignMap		map[string]uint64
@@ -514,6 +515,11 @@ type ZeroTxnBlockCounter int
 func NewTransactionCounter() *TransactionCounter {
 	value := 0
 	return (*TransactionCounter)(&value)
+}
+
+func NewGovernanceCounter() *GovernanceCounter {
+	value := 0
+	return (*GovernanceCounter)(&value)
 }
 
 func NewSCCounter() *SCCounter {
@@ -540,6 +546,10 @@ func NewZeroTxnBlockCounter() *ZeroTxnBlockCounter {
 
 func (t *TransactionCounter) AddBlock(block Block) {
 	*t += (TransactionCounter)(block.TransactionsCount())
+}
+
+func (t *GovernanceCounter) AddBlock(block Block) {
+	*t += (GovernanceCounter)(block.GovernanceTransactionsCount())
 }
 
 func (sc *SCCounter) AddBlock(block Block, by string) {
@@ -575,6 +585,14 @@ func (ztbc *ZeroTxnBlockCounter) AddBlock(block Block) {
 
 func (t *TransactionCounter) Result() interface{} {
 	return t
+}
+
+func (eb *EmptyBlockCounter) Result() interface{} {
+	return eb
+}
+
+func (zb *ZeroTxnBlockCounter) Result() interface{} {
+	return zb
 }
 
 type MissingBlocks struct {
