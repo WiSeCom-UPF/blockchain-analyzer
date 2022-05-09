@@ -14,6 +14,32 @@ import (
 	"compress/gzip"
 )
 
+type Pair struct {
+	Key   string
+	Value int
+}
+
+type PairList []Pair
+
+func (p PairList) Len() int           { return len(p) }
+func (p PairList) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p PairList) Less(i, j int) bool { return p[i].Value < p[j].Value }
+
+func SortMapStringU64(p map[string]int) (PairList){
+	p1 := make(PairList, len(p))
+	valCounter := 0
+	i := 0
+	for k, v := range p {
+		valCounter += v
+		p1[i] = Pair{k, v}
+		i++
+	}
+
+	sort.Sort(sort.Reverse(p1))
+
+	return p1
+}
+
 const (
 	BatchSize uint64 = 100000
 )
@@ -28,6 +54,37 @@ func MakeErrFilename(filePath string, first, last uint64) string {
 	return fmt.Sprintf("%s-%d--%d-errors.%s", splitted[0], first, last, splitted[1])
 }
 
+func SplitItems2Spaces(itemsString string) ([]string){
+	itemsSlice := strings.Split(itemsString, "  ")
+	for i:= 0; i< len(itemsSlice); i = i +1{
+		itemsSlice[i] = strings.TrimSpace(itemsSlice[i])
+	}
+	return itemsSlice
+}
+
+func SpliceToMapStrSTr(itemsSlice []string) (map[string]string){
+	var itemsMap = map[string]string{}
+	for j:= 0; j< len(itemsSlice); {
+		itemsMap[strings.ToUpper(itemsSlice[j])] = itemsSlice[j+1]
+		j = j + 2
+	}
+	return itemsMap
+}
+
+func SliceToMapStrStr(staticVarName string) (map[string]string){
+	if staticVarName == "VerifiedTokens"{
+		itemsSlice := SplitItems2Spaces(VerifiedSCIotex)
+		return SpliceToMapStrSTr(itemsSlice)
+	} else if staticVarName == "XRCTokens"{
+		itemsSlice := SplitItems2Spaces(ERC20TokensIotex)
+		return SpliceToMapStrSTr(itemsSlice)
+	} else if staticVarName == "NFTTokens"{
+		itemsSlice := SplitItems2Spaces(NFTTokenIotex)
+		return SpliceToMapStrSTr(itemsSlice)
+	} else {
+		return nil
+	}
+}
 
 // provided ioctl program with iotex config is installed
 func ConvertEthAddrToIotexAddr(Ethaddr string) string {

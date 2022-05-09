@@ -188,7 +188,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
-			Name:  "count-sc-stats",
+			Name:  "count-sc-sign",
 			Flags: addOutputFlag(addActionPropertyFlag(addPatternFlag(addRangeFlags(nil, false)))),
 			Usage: "Count the number of smart contracts created in the data",
 			Action: makeAction(func(c *cli.Context) error {
@@ -199,7 +199,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 					return err
 				}
 				fmt.Printf("found %d SC created and %d unique function Signatures \n", count.SCCreated, len(count.SCSignMap))
-				return core.Persist(count, c.String("output"))
+				return core.Persist(core.SortMapStringU64(count.SCSignMap), c.String("output"))
 			}),
 		},
 		{
@@ -332,6 +332,26 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 					return err
 				}
 				counts, err := processor.GroupActions(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"),
+					actionProperty, c.Bool("detailed"))
+				if err != nil {
+					return err
+				}
+				return core.Persist(counts, c.String("output"))
+			}),
+		},
+		{
+			Name: "sc-group-actions",
+			Flags: addDetailedFlag(addActionPropertyFlag(
+				addPatternFlag(addOutputFlag(addRangeFlags(nil, false))))),
+			Usage: "Count and groups the number of \"actions\" in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				actionProperty, err := core.GetActionProperty(c.String("by"))
+				if err != nil {
+					return err
+				}
+				counts, err := processor.SCGroupActions(
 					blockchain, c.String("pattern"),
 					c.Uint64("start"), c.Uint64("end"),
 					actionProperty, c.Bool("detailed"))

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"time"
+	"strings"
 
 	"github.com/danhper/structomap"
 )
@@ -433,7 +434,7 @@ var groupedActionsSerializer = structomap.New().
 		}
 		return results
 	}, "Actions").
-	Pick("GroupedBy", "BlocksCount", "ActionsCount")
+	Pick("VerifiedSC", "UnVerifiedSC", "XRC20Tokens", "NFTTokens","GroupedBy", "BlocksCount", "ActionsCount")
 
 func (g *GroupedActions) MarshalJSON() ([]byte, error) {
 	return json.Marshal(groupedActionsSerializer.Transform(g))
@@ -502,11 +503,116 @@ func (g *GroupedActions) Result() interface{} {
 	return g
 }
 
+type SCGroupedActions struct {
+	Actions        map[string]*ActionGroup
+	GroupedBy      string
+	BlocksCount    uint64
+	VerifiedSC     uint64
+	UnVerifiedSC   uint64
+	XRC20Tokens	   uint64
+	NFTTokens      uint64
+	ActionsCount   uint64
+	actionProperty ActionProperty
+	detailed       bool
+}
+
+func NewSCGroupedActions(by ActionProperty, detailed bool) *SCGroupedActions {
+	actions := make(map[string]*ActionGroup)
+	return &SCGroupedActions{
+		Actions:        actions,
+		GroupedBy:      by.String(),
+		BlocksCount:    0,
+		VerifiedSC:     0,
+		UnVerifiedSC:   0,
+		XRC20Tokens:	0,
+		NFTTokens:      0,
+		ActionsCount:   0,
+		actionProperty: by,
+		detailed:       detailed,
+	}
+}
+
+func (scg *SCGroupedActions) getActionKey(action Action) string {
+	switch scg.actionProperty {
+	case ActionName:
+		return action.Name()
+	case ActionSender:
+		return action.Sender()
+	case ActionReceiver:
+		return action.Receiver()
+	default:
+		panic(fmt.Errorf("no such property %d", scg.actionProperty))
+	}
+}
+
+func (scg *SCGroupedActions) AddBlock(block Block, verifiedTokensMap, XRC20Map, NFTTokensMap map[string]string) {
+	scg.BlocksCount += 1
+
+	for _, action := range block.ListActions() {
+		scg.ActionsCount += 1
+		key := scg.getActionKey(action)
+		if key == "" {
+			continue
+		}
+
+		if key == "Contract" {
+
+			address := strings.ToUpper(action.Receiver())
+			if _, ok := verifiedTokensMap[address]; ok{
+				scg.VerifiedSC += 1
+			} else {
+				scg.UnVerifiedSC += 1
+			}
+
+			if _, ok := XRC20Map[address]; ok{
+				scg.XRC20Tokens += 1
+			}
+
+			if _, ok := NFTTokensMap[address]; ok{
+				scg.NFTTokens += 1
+			}
+		}
+
+		actionGroup, ok := scg.Actions[key]
+		if !ok {
+			actionGroup = NewActionGroup(key)
+			scg.Actions[key] = actionGroup
+		}
+		actionGroup.Count += 1
+		if scg.detailed {
+			actionGroup.Names.Increment(action.Name())
+			actionGroup.Senders.Increment(action.Sender())
+			actionGroup.Receivers.Increment(action.Receiver())
+		}
+	}
+}
+
+func (scg *SCGroupedActions) Result() interface{} {
+	return scg
+}
+
+func (scg *SCGroupedActions) MarshalJSON() ([]byte, error) {
+	return json.Marshal(groupedActionsSerializer.Transform(scg))
+}
+
+func (scg *SCGroupedActions) Get(key string) *ActionGroup {
+	return scg.Actions[key]
+}
+
+func (scg *SCGroupedActions) GetCount(key string) uint64 {
+	group := scg.Get(key)
+	if group == nil {
+		return 0
+	}
+	return group.Count
+}
+
+
 type TransactionCounter int
 type GovernanceCounter int
 type SCCounter struct {
 	SCCreated    	int
-	SCSignMap		map[string]uint64
+	SCSignMap		map[string]int
 }
 type TransactionCounterByAddress int
 type EmptyBlockCounter int
@@ -525,7 +631,7 @@ func NewGovernanceCounter() *GovernanceCounter {
 func NewSCCounter() *SCCounter {
 	return &SCCounter{
 		SCCreated: 0,
-		SCSignMap: make(map[string]uint64),
+		SCSignMap: make(map[string]int),
 	}
 }
 

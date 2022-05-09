@@ -397,6 +397,29 @@ func GroupActions(blockchain core.Blockchain, globPattern string,
 	return groupedActions, nil
 }
 
+func SCGroupActions(blockchain core.Blockchain, globPattern string,
+	start, end uint64, by core.ActionProperty, detailed bool,
+) (*core.SCGroupedActions, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+
+	var verifiedTokensMap = map[string]string{}
+	var XRC20Map = map[string]string{}
+	var NFTTokensMap = map[string]string{}
+
+	verifiedTokensMap = core.SliceToMapStrStr("VerifiedTokens")
+	XRC20Map = core.SliceToMapStrStr("XRCTokens")
+	NFTTokensMap = core.SliceToMapStrStr("NFTTokens")
+
+	groupedActions := core.NewSCGroupedActions(by, detailed)
+	for block := range blocks {
+		groupedActions.AddBlock(block, verifiedTokensMap, XRC20Map, NFTTokensMap)
+	}
+	return groupedActions, nil
+}
+
 func OneToOneCount(blockchain core.Blockchain, globPattern string,
 	start, end uint64) (*core.OneToOneTxnMap, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
