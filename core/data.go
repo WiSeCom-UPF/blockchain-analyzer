@@ -434,6 +434,22 @@ var groupedActionsSerializer = structomap.New().
 		}
 		return results
 	}, "Actions").
+	Pick("GroupedBy", "BlocksCount", "ActionsCount")
+
+var SCgroupedActionsSerializer = structomap.New().
+	PickFunc(func(actions interface{}) interface{} {
+		var results []*ActionGroup
+		for _, action := range actions.(map[string]*ActionGroup) {
+			results = append(results, action)
+		}
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Count > results[j].Count
+		})
+		if len(results) > maxTopLevelResults {
+			results = results[:maxTopLevelResults]
+		}
+		return results
+	}, "Actions").
 	Pick("VerifiedSC", "UnVerifiedSC", "XRC20Tokens", "NFTTokens","GroupedBy", "BlocksCount", "ActionsCount")
 
 func (g *GroupedActions) MarshalJSON() ([]byte, error) {
@@ -592,7 +608,7 @@ func (scg *SCGroupedActions) Result() interface{} {
 }
 
 func (scg *SCGroupedActions) MarshalJSON() ([]byte, error) {
-	return json.Marshal(groupedActionsSerializer.Transform(scg))
+	return json.Marshal(SCgroupedActionsSerializer.Transform(scg))
 }
 
 func (scg *SCGroupedActions) Get(key string) *ActionGroup {
