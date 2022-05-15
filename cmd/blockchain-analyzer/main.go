@@ -192,7 +192,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			Flags: addOutputFlag(addActionPropertyFlag(addPatternFlag(addRangeFlags(nil, false)))),
 			Usage: "Count the number of smart contracts created in the data",
 			Action: makeAction(func(c *cli.Context) error {
-				count, err := processor.CountSCCreated(
+				count, err := processor.CountSCSign(
 					blockchain, c.String("pattern"),
 					c.Uint64("start"), c.Uint64("end"), c.String("by"))
 				if err != nil {
@@ -418,7 +418,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 				if err != nil {
 					return err
 				}
-				return core.Persist(counts, c.String("output"))
+				return core.Persist(core.SortMapStringU64(counts.MiningHistoryCounts), c.String("output"))
 			}),
 		},
 		{

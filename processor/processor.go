@@ -226,7 +226,7 @@ func CountGovTransactions(blockchain core.Blockchain, globPattern string, start,
 	return (int)(*govTxCounter), nil
 }
 
-func CountSCCreated(blockchain core.Blockchain, globPattern string, start, end uint64, by string) (*core.SCCounter, error) {
+func CountSCSign(blockchain core.Blockchain, globPattern string, start, end uint64, by string) (*core.SCCounter, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {
 		return nil, err
@@ -263,8 +263,7 @@ func CountEmptyBlocks(blockchain core.Blockchain, globPattern string, start, end
 }
 
 func CountEmptyBlocksOverTime(blockchain core.Blockchain, globPattern string,
-	start, end uint64, duration time.Duration,
-) (*core.TimeGroupedEmptyBlocks, error) {
+	start, end uint64, duration time.Duration) (*core.TimeGroupedEmptyBlocks, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {
 		return nil, err
