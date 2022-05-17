@@ -404,6 +404,24 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-gov-transactions-over-time",
+			Flags: addOutputFlag((addGroupDurationFlag(addPatternFlag(addRangeFlags(nil, false))))),
+			Usage: "Count the number of transactions in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				duration, err := time.ParseDuration(c.String("duration"))
+				if err != nil {
+					return err
+				}
+				count, err := processor.CountGovTransactionsOverTime(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"), duration)
+				if err != nil {
+					return err
+				}
+				return core.Persist(count, c.String("output"))
+			}),
+		},
+		{
 			Name:  "count-mining-history",
 			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
 			Usage: "Count the miner history as per number of blocks produced",
@@ -469,6 +487,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 				if err := json.NewDecoder(file).Decode(&config); err != nil {
 					return err
 				}
+				fmt.Println(config.RawProcessors)
 				result, err := processor.RunBulkActions(blockchain, config)
 				if err != nil {
 					return err

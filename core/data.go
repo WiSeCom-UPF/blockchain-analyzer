@@ -313,6 +313,11 @@ type TimeGroupedTransactionCount struct {
 	GroupedBy         time.Duration
 }
 
+type TimeGroupedGovTransactionCount struct {
+	GovTransactionCounts map[time.Time]int
+	GroupedBy         time.Duration
+}
+
 type TimeGroupedSCCount struct {
 	SCCounts 		  map[time.Time]int
 	GroupedBy         time.Duration
@@ -351,6 +356,13 @@ func NewTimeGroupedTransactionCount(duration time.Duration) *TimeGroupedTransact
 	}
 }
 
+func NewTimeGroupedGovTransactionCount(duration time.Duration) *TimeGroupedGovTransactionCount {
+	return &TimeGroupedGovTransactionCount{
+		GovTransactionCounts: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
 func (g *TimeGroupedTransactionCount) AddBlock(block Block) {
 	group := block.Time().Truncate(g.GroupedBy)
 	if _, ok := g.TransactionCounts[group]; !ok {
@@ -361,6 +373,18 @@ func (g *TimeGroupedTransactionCount) AddBlock(block Block) {
 
 func (g *TimeGroupedTransactionCount) Result() interface{} {
 	return g
+}
+
+func (gtx *TimeGroupedGovTransactionCount) AddBlock(block Block) {
+	group := block.Time().Truncate(gtx.GroupedBy)
+	if _, ok := gtx.GovTransactionCounts[group]; !ok {
+		gtx.GovTransactionCounts[group] = 0
+	}
+	gtx.GovTransactionCounts[group] += block.GovernanceTransactionsCount()
+}
+
+func (gtx *TimeGroupedGovTransactionCount) Result() interface{} {
+	return gtx
 }
 
 func NewTimeGroupedSCCount(duration time.Duration) *TimeGroupedSCCount {

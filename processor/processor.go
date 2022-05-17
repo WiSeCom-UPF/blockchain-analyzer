@@ -332,6 +332,18 @@ func CountTransactionsOverTime(blockchain core.Blockchain, globPattern string,
 	return result, nil
 }
 
+func CountGovTransactionsOverTime(blockchain core.Blockchain, globPattern string, start, end uint64, duration time.Duration) (*core.TimeGroupedGovTransactionCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedGovTransactionCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
 func CountSCCreatedOverTime(blockchain core.Blockchain, globPattern string,
 	start, end uint64, duration time.Duration,
 ) (*core.TimeGroupedSCCount, error) {
