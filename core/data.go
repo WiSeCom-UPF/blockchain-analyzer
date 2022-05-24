@@ -649,6 +649,7 @@ func (scg *SCGroupedActions) GetCount(key string) uint64 {
 
 
 type TransactionCounter int
+type MaxTransactionBlockCounter int
 type GovernanceCounter int
 type SCCounter struct {
 	SCCreated    	int
@@ -661,6 +662,11 @@ type ZeroTxnBlockCounter int
 func NewTransactionCounter() *TransactionCounter {
 	value := 0
 	return (*TransactionCounter)(&value)
+}
+
+func NewMaxTransactionBlockCounter() *MaxTransactionBlockCounter {
+	value := 0
+	return (*MaxTransactionBlockCounter)(&value)
 }
 
 func NewGovernanceCounter() *GovernanceCounter {
@@ -692,6 +698,10 @@ func NewZeroTxnBlockCounter() *ZeroTxnBlockCounter {
 
 func (t *TransactionCounter) AddBlock(block Block) {
 	*t += (TransactionCounter)(block.TransactionsCount())
+}
+
+func (t *MaxTransactionBlockCounter) AddBlock(block Block) (int){
+	return (int)(block.TransactionsCount())
 }
 
 func (t *GovernanceCounter) AddBlock(block Block) {
@@ -730,6 +740,10 @@ func (ztbc *ZeroTxnBlockCounter) AddBlock(block Block) {
 }
 
 func (t *TransactionCounter) Result() interface{} {
+	return t
+}
+
+func (t *MaxTransactionBlockCounter) Result() interface{} {
 	return t
 }
 

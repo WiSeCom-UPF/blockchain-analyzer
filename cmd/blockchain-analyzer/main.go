@@ -173,9 +173,24 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			}),
 		},
 		{
+			Name:  "count-max-txn-a-block",
+			Flags: addPatternFlag(addRangeFlags(nil, false)),
+			Usage: "Count the maximum number of transactions in a block in the data",
+			Action: makeAction(func(c *cli.Context) error {
+				count, err := processor.CountMaxTransactionsInBlock(
+					blockchain, c.String("pattern"),
+					c.Uint64("start"), c.Uint64("end"))
+				if err != nil {
+					return err
+				}
+				fmt.Printf("found %d max transactions in a block\n", count)
+				return nil
+			}),
+		},
+		{
 			Name:  "count-gov-transactions",
 			Flags: addPatternFlag(addRangeFlags(nil, false)),
-			Usage: "Count the number of transactions in the data",
+			Usage: "iotex specific: Count the number of governance transactions in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountGovTransactions(
 					blockchain, c.String("pattern"),
@@ -190,7 +205,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-sc-sign",
 			Flags: addOutputFlag(addActionPropertyFlag(addPatternFlag(addRangeFlags(nil, false)))),
-			Usage: "Count the number of smart contracts created in the data",
+			Usage: "iotex specific: Count the function signature in smart contract transactions",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountSCSign(
 					blockchain, c.String("pattern"),
@@ -205,7 +220,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-sc-created-over-time",
 			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
-			Usage: "Count number of smart contracts created over time in the data",
+			Usage: "iotex specific: Count number of smart contracts created over time in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {
@@ -223,7 +238,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-transactions-by-address",
 			Flags: addActionPropertyFlag(addAddressFlag(addPatternFlag(addRangeFlags(nil, false)))),
-			Usage: "Count the number of transactions in the data by address of either sender or recover",
+			Usage: "iotex specific: Count the number of transactions in the data by address of either sender or recover",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountTransactionsByAddress(
 					blockchain, c.String("pattern"),
@@ -239,7 +254,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-transactions-by-address-over-time",
 			Flags: addActionPropertyFlag(addGroupDurationFlag(addAddressFlag(addOutputFlag(addPatternFlag(addRangeFlags(nil, false)))))),
-			Usage: "Count the number of transactions in the data by address of either sender or recover per fixed time interval",
+			Usage: "iotex specific: Count the number of transactions in the data by address of either sender or recover per fixed time interval",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {
@@ -258,7 +273,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-empty-blocks",
 			Flags: addPatternFlag(addRangeFlags(nil, false)),
-			Usage: "Count the number of empty blocks in the data",
+			Usage: "iotex specific: Count the number of empty blocks in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountEmptyBlocks(
 					blockchain, c.String("pattern"),
@@ -273,7 +288,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-empty-blocks-over-time",
 			Flags: addPatternFlag(addGroupDurationFlag(addOutputFlag(addRangeFlags(nil, false)))),
-			Usage: "Count the number of empty blocks per fixed time interval in the data",
+			Usage: "iotex specific: Count the number of empty blocks per fixed time interval in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {
@@ -291,7 +306,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-zero-txn-blocks-over-time",
 			Flags: addPatternFlag(addGroupDurationFlag(addOutputFlag(addRangeFlags(nil, false)))),
-			Usage: "Count the number of zero txn blocks per fixed time interval in the data",
+			Usage: "iotex specific: Count the number of zero txn blocks per fixed time interval in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {
@@ -309,7 +324,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-zero-txn-blocks",
 			Flags: addPatternFlag(addRangeFlags(nil, false)),
-			Usage: "Count the number of zero txn blocks in the data",
+			Usage: "iotex specific: Count the number of zero txn blocks in the data",
 			Action: makeAction(func(c *cli.Context) error {
 				count, err := processor.CountZeroTxnBlocks(
 					blockchain, c.String("pattern"),
@@ -345,7 +360,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			Name: "sc-group-actions",
 			Flags: addDetailedFlag(addActionPropertyFlag(
 				addPatternFlag(addOutputFlag(addRangeFlags(nil, false))))),
-			Usage: "Count and groups the number of \"actions\" in the data",
+			Usage: "iotex specific: Count and groups the number of \"actions\" in the data, along with type of SC i.e. verified, unverified, XRC20 or NFT",
 			Action: makeAction(func(c *cli.Context) error {
 				actionProperty, err := core.GetActionProperty(c.String("by"))
 				if err != nil {
@@ -406,7 +421,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-gov-transactions-over-time",
 			Flags: addOutputFlag((addGroupDurationFlag(addPatternFlag(addRangeFlags(nil, false))))),
-			Usage: "Count the number of transactions in the data",
+			Usage: "iotex specific: Count the number of governance transactions in the data over the fixed intervals of time",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {
@@ -424,12 +439,8 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-mining-history",
 			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
-			Usage: "Count the miner history as per number of blocks produced",
+			Usage: "iotex specific: Count the miner history as per number of blocks produced",
 			Action: makeAction(func(c *cli.Context) error {
-				// duration, err := time.ParseDuration(c.String("duration"))
-				// if err != nil {
-				// 	return err
-				// }
 				counts, err := processor.CountMiningHistory(
 					blockchain, c.String("pattern"),
 					c.Uint64("start"), c.Uint64("end"))
@@ -443,7 +454,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			Name: "count-one-to-one-txns",
 			Flags: addActionPropertyFlag(
 				addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
-			Usage: "Count and groups the number of \"actions\" in the data",
+			Usage: "iotex specific: Count transactions between sender and receiver, put in a map",
 			Action: makeAction(func(c *cli.Context) error {
 				counts, err := processor.OneToOneCount(
 					blockchain, c.String("pattern"),
@@ -457,7 +468,7 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 		{
 			Name:  "count-mining-history-over-time",
 			Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
-			Usage: "Count the miner history as per number of blocks produced over time",
+			Usage: "iotex specific: Count the miner history as per number of blocks produced over time",
 			Action: makeAction(func(c *cli.Context) error {
 				duration, err := time.ParseDuration(c.String("duration"))
 				if err != nil {

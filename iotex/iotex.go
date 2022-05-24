@@ -191,7 +191,6 @@ func (ix *Iotex) ParseBlock(rawLine []byte) (core.Block, error) {
 	} else {
 		block.IsEmptyBlock = false
 	}
-	fmt.Println(block.BlockData.GovernanceTxns, block.BlockData.TotalTxnCount)
 
 	if txnsInBlock == 0 && (block.BlockData.GovernanceTxns > 0) {
 		block.ZeroTxnBlock = true
