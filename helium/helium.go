@@ -29,32 +29,23 @@ type Helium struct {
 
 func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, cursor string) (*http.Response, error) {
 	url := fmt.Sprintf("%s/v1/blocks/%d/transactions", h.RPCEndpoint, blockNumber)
-	
 	req, _ := http.NewRequest("GET", url, nil)
-	// if err != nil {
-	// 	return 429, "TO-DO"
-	// }
 	// User agent added, for smooth Helium API access
 	req.Header.Set("User-Agent", "My User-Agent")
 	resp, err := client.Do(req)
 
-	// pr, pw := io.Pipe()
-	// defer pw.Close()
-	result_string := ""
+	var result_string string
 	if err == nil {
 		raw_bytes, _ := ioutil.ReadAll(resp.Body)
-		result_string += string(raw_bytes)
-		resp.Body = ioutil.NopCloser(strings.NewReader(string(raw_bytes)))
-		raw_bytes1, _ := ioutil.ReadAll(resp.Body)
-		if len(raw_bytes1) < 20	 {
-			payloadstr := fmt.Sprintf(`{"height": %d, "isEmpty" : "true"}`, blockNumber)
-			resp.Body = ioutil.NopCloser(strings.NewReader(string(payloadstr)))
-			return resp, nil
-		} 
-
 		cursor_present, cursor_value := h.IsCursorPresent(string(raw_bytes))
-		for cursor_present {
+		if cursor_present {
+			result_string = string(h.RemoveCursor(string(raw_bytes)))
+		} else {
+			result_string += string(raw_bytes)
+		}
 
+		for cursor_present {
+			// make a new API request with the cursor
 			url = fmt.Sprintf("%s/v1/blocks/%d/transactions?cursor=%s", h.RPCEndpoint, blockNumber, cursor_value)
 			time.Sleep(time.Second)
 			req, _ = http.NewRequest("GET", url, nil)
@@ -64,10 +55,27 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 				return resp, err
 			}
 			
-			raw_bytes, _ := ioutil.ReadAll(resp.Body)			
-			result_string += string(raw_bytes)
+			// post process the response of the API request
+			raw_bytes, _ := ioutil.ReadAll(resp.Body)	
+			// check and get the cursor first		
 			cursor_present, cursor_value = h.IsCursorPresent(string(raw_bytes))
+			temp_var := string(raw_bytes)[10:]
+			// if ther cursor is present then remove it
+			if cursor_present{
+				result_string += string(h.RemoveCursor(temp_var))
+			} else {
+				result_string += temp_var
+			}
 		}
+
+		len_result_string := len(result_string)
+		// append the height with each block
+		if string(result_string[0]) == "{"  && string(result_string[len_result_string-1]) == "}" {
+			result_string = strings.TrimSuffix(result_string, "}")
+			payloadstr := fmt.Sprintf(`,"height": %d}`, blockNumber)
+			result_string += payloadstr
+		} 
+		// append the final block structure with response body
 		resp.Body = ioutil.NopCloser(strings.NewReader(string(result_string)))
 	}
 	return resp, err
@@ -87,6 +95,13 @@ func (h *Helium) IsCursorPresent(raw_stream string) (IsPresent bool, cursor stri
 	}
 
 	return false, ""
+}
+
+func (h *Helium) RemoveCursor(raw_stream string) string {
+	// get cursor index, usually the last element, safe to remove
+	cursor_index := strings.Index(raw_stream, `,"cursor":"`)
+	// return the new string skip -2 elements
+	return raw_stream[0:cursor_index-2]
 }
 
 
