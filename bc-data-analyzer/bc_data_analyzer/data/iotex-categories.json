@@ -1,0 +1,17 @@
+{
+  "categories": [
+    {"name": "Gaming", "color": "blue"},
+    {"name": "Payment", "color": "gray"},
+    {"name": "Staking", "color": "green"},
+    {"name": "Dex", "color": "teal"},
+    {"name": "Community_Token", "color": "violet"},
+    {"name": "Others", "color": "brown"}
+  ],
+  "mapping": {
+    "0x17Df9fBFC1CdAB0f90eDDC318C4f6FcADA730cf2": "Gaming",
+    "0xEc0cd5c1D61943A195bcA7b381dc60F9F545A540": "Payment",
+    "0x4752456e00def6025c77b55A88A2F8A1701F92F9": "Staking",
+    "0x95cB18889B968AbABb9104f30aF5b310bD007Fd8": "Dex",
+    "0xB8744aE4032Be5E5ef9FaB94ee9C3bf38D5D2AE0": "Community_Token"
+  }
+}
