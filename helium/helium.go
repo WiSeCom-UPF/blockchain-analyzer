@@ -5,10 +5,7 @@ import (
 	"net/http"
 	"io/ioutil"
 	"strings"
-	// "io"
 	"os"
-	// "reflect"
-	// "encoding/json"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -28,11 +25,33 @@ type Helium struct {
 
 
 func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, cursor string) (*http.Response, error) {
-	url := fmt.Sprintf("%s/v1/blocks/%d/transactions", h.RPCEndpoint, blockNumber)
+
+	// Get the block specific data such as time, hash, height etc.
+	url := fmt.Sprintf("%s/v1/blocks/%d", h.RPCEndpoint, blockNumber)
 	req, _ := http.NewRequest("GET", url, nil)
 	// User agent added, for smooth Helium API access
 	req.Header.Set("User-Agent", "My User-Agent")
 	resp, err := client.Do(req)
+
+	temp_res_data, _ := ioutil.ReadAll(resp.Body)
+	temp_res_data_str := string(temp_res_data)
+	var data interface{}
+	json.Unmarshal([]byte(temp_res_data_str), &data)
+	m := data.(map[string]interface{})
+	temp := m["data"]
+	v := temp.(map[string]interface{})
+	// Data to be put in a block
+	transaction_count := v["transaction_count"]
+	hash := v["hash"]
+	prev_hash := v["prev_hash"]
+	block_time := int(v["time"].(float64))
+
+	// Get the transactions inside the block
+	url = fmt.Sprintf("%s/v1/blocks/%d/transactions", h.RPCEndpoint, blockNumber)
+	req, _ = http.NewRequest("GET", url, nil)
+	// User agent added, for smooth Helium API access
+	req.Header.Set("User-Agent", "My User-Agent")
+	resp, err = client.Do(req)
 
 	var result_string string
 	if err == nil {
@@ -69,10 +88,10 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 		}
 
 		len_result_string := len(result_string)
-		// append the height with each block
+		// append the attributes captured earlier in each block
 		if string(result_string[0]) == "{"  && string(result_string[len_result_string-1]) == "}" {
 			result_string = strings.TrimSuffix(result_string, "}")
-			payloadstr := fmt.Sprintf(`,"height": %d}`, blockNumber)
+			payloadstr := fmt.Sprintf(`,"height": %d, transaction_count %v, "time": %d, "prev_hash": %s, "hash" %s: }`, blockNumber, transaction_count, block_time, prev_hash, hash)
 			result_string += payloadstr
 		} 
 		// append the final block structure with response body
