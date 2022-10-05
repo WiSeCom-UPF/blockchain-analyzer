@@ -7,6 +7,7 @@ import (
 	"strings"
 	"os"
 	"time"
+	// "reflect"
 
 	jsoniter "github.com/json-iterator/go"
 
@@ -32,19 +33,36 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 	// User agent added, for smooth Helium API access
 	req.Header.Set("User-Agent", "My User-Agent")
 	resp, err := client.Do(req)
+	if err != nil {
+		return resp, err
+	}
 
 	temp_res_data, _ := ioutil.ReadAll(resp.Body)
 	temp_res_data_str := string(temp_res_data)
-	var data interface{}
+	if len(temp_res_data_str) < 165 {
+		resp.StatusCode = 429
+		return resp, err
+	}
+
+	var data map[string]map[string]interface{}
+	// var height map[string]float64
 	json.Unmarshal([]byte(temp_res_data_str), &data)
-	m := data.(map[string]interface{})
-	temp := m["data"]
-	v := temp.(map[string]interface{})
+	// m := data.(map[string]interface{})
+	// temp := data["data"]
+	// height["height"] = data["data"]["height"].(float64)
+	// fmt.Println(data, blockNumber)
+	v := data["data"]
+	// fmt.Println(v, string(temp_res_data))
+	
 	// Data to be put in a block
 	transaction_count := v["transaction_count"]
 	hash := v["hash"]
 	prev_hash := v["prev_hash"]
-	block_time := int(v["time"].(float64))
+	// block_time := v["time"]
+	// var dd interface{} = data["data"]["time"]
+	// var val1 int = dd.(int)
+	// fmt.Println(reflect.TypeOf(dd))
+	// block_time = int(block_time.(float64))
 
 	// Get the transactions inside the block
 	url = fmt.Sprintf("%s/v1/blocks/%d/transactions", h.RPCEndpoint, blockNumber)
@@ -73,10 +91,10 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 			if err != nil {
 				return resp, err
 			}
-			
+
 			// post process the response of the API request
-			raw_bytes, _ := ioutil.ReadAll(resp.Body)	
-			// check and get the cursor first		
+			raw_bytes, _ := ioutil.ReadAll(resp.Body)
+			// check and get the cursor first
 			cursor_present, cursor_value = h.IsCursorPresent(string(raw_bytes))
 			temp_var := string(raw_bytes)[10:]
 			// if ther cursor is present then remove it
@@ -91,11 +109,19 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 		// append the attributes captured earlier in each block
 		if string(result_string[0]) == "{"  && string(result_string[len_result_string-1]) == "}" {
 			result_string = strings.TrimSuffix(result_string, "}")
-			payloadstr := fmt.Sprintf(`,"height": %d, transaction_count %v, "time": %d, "prev_hash": %s, "hash" %s: }`, blockNumber, transaction_count, block_time, prev_hash, hash)
+			payloadstr := ""
+			// It is a special case where last data is type_witness
+			if (string(result_string[len(result_string) -1]) != "]"){
+				payloadstr = fmt.Sprintf(`}],"height": %d, transaction_count: %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)				
+			} else {
+				payloadstr = fmt.Sprintf(`,"height": %d, transaction_count: %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)
+			}
 			result_string += payloadstr
-		} 
+		}
 		// append the final block structure with response body
 		resp.Body = ioutil.NopCloser(strings.NewReader(string(result_string)))
+		// fmt.Println(string(result_string))
+		// fmt.Println(v, string(temp_res_data))
 	}
 	return resp, err
 }
