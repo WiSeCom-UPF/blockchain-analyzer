@@ -177,13 +177,13 @@ func addCommonCommands(blockchain core.Blockchain, commands []*cli.Command) []*c
 			Flags: addPatternFlag(addRangeFlags(nil, false)),
 			Usage: "Count the maximum number of transactions in a block in the data",
 			Action: makeAction(func(c *cli.Context) error {
-				count, err := processor.CountMaxTransactionsInBlock(
+				count, blk_num, err := processor.CountMaxTransactionsInBlock(
 					blockchain, c.String("pattern"),
 					c.Uint64("start"), c.Uint64("end"))
 				if err != nil {
 					return err
 				}
-				fmt.Printf("found %d max transactions in a block\n", count)
+				fmt.Printf("found %d max transactions in a block number %d \n", count, blk_num)
 				return nil
 			}),
 		},

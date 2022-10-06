@@ -214,20 +214,22 @@ func CountTransactions(blockchain core.Blockchain, globPattern string, start, en
 	return (int)(*txCounter), nil
 }
 
-func CountMaxTransactionsInBlock(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+func CountMaxTransactionsInBlock(blockchain core.Blockchain, globPattern string, start, end uint64) (int, int, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {
-		return 0, err
+		return 0,0, err
 	}
 	txCounter := core.NewMaxTransactionBlockCounter()
 	max_counter := 0
+	var blk_num uint64
 	for block := range blocks {
 		temp := txCounter.AddBlock(block)
 		if max_counter < temp {
 			max_counter = temp
+			blk_num = block.Number()
 		}
 	}
-	return (int)(max_counter), nil
+	return (int)(max_counter), (int)(blk_num), nil
 }
 
 func CountGovTransactions(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
