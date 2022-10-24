@@ -112,9 +112,9 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 			payloadstr := ""
 			// It is a special case where last data is type_witness
 			if (string(result_string[len(result_string) -1]) != "]"){
-				payloadstr = fmt.Sprintf(`}],"height": %d, transaction_count: %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)				
+				payloadstr = fmt.Sprintf(`}],"height": %d, "transaction_count": %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)				
 			} else {
-				payloadstr = fmt.Sprintf(`,"height": %d, transaction_count: %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)
+				payloadstr = fmt.Sprintf(`,"height": %d, "transaction_count": %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)
 			}
 			result_string += payloadstr
 		}
@@ -155,28 +155,34 @@ func (h *Helium) FetchData(filepath string, start, end uint64) error {
 	return fetcher.FetchHTTPData(filepath, context)
 }
 
-type Content struct {
-	Kind        string
-	Source      string
-	Destination string
-	Amount      string
-}
+// type Content struct {
+// 	Kind        string
+// 	Source      string
+// 	Destination string
+// 	Amount      string
+// }
 
-type Operation struct {
-	Hash     string
-	Contents []Content
-}
+// type PoCRequest struct {
+// 	Hash     string
+// 	Contents []Content
+// }
 
-type BlockHeader struct {
-	Level           uint64
-	Timestamp       string
+type TransactionData struct {
+	Version         uint64  `json:"version"`
+	Type            string
+	Timestamp       uint64  `json:"time"`
 	ParsedTimestamp time.Time
+	Hash            string
 }
 
 type Block struct {
-	Header     BlockHeader
-	Operations [][]Operation
-	actions    []core.Action
+	BlockNumber      uint64  `json:"height"`
+	TransactionCount uint64  `json:"transaction_count"`
+	Timestamp        uint64  `json:"time"`
+	BlockTimestamp   time.Time
+	Hash             string
+	PrevHash         string  `json:"prev_hash"`
+	Transactions     []TransactionData `json:"data"`
 }
 
 func New() *Helium {
@@ -193,14 +199,26 @@ func New() *Helium {
 func (h *Helium) ParseBlock(rawLine []byte) (core.Block, error) {
 	var block Block
 	if err := json.Unmarshal(rawLine, &block); err != nil {
+		fmt.Println(err)
 		return nil, err
 	}
-	parsedTime, err := time.Parse(time.RFC3339, block.Header.Timestamp)
+
+	parsedTime, err := h.ConvertDecimalTimestampToTime(block.Timestamp)
 	if err != nil {
 		return nil, err
 	}
-	block.Header.ParsedTimestamp = parsedTime
+	block.BlockTimestamp = parsedTime
 	return &block, nil
+}
+
+func (h *Helium) ConvertDecimalTimestampToTime(timeStamp uint64) (time.Time, error) {
+	// convert UNIX decimal timestamp to 
+	unixTimeUTC := time.Unix(int64(timeStamp), 0)
+	parsedTimeString := unixTimeUTC.Format(time.RFC3339)
+	// convert from string to time.Time format
+	parsedTime, err := time.Parse(time.RFC3339, parsedTimeString)
+
+	return parsedTime, err
 }
 
 func (h *Helium) EmptyBlock() core.Block {
@@ -208,19 +226,19 @@ func (h *Helium) EmptyBlock() core.Block {
 }
 
 func (b *Block) Number() uint64 {
-	return b.Header.Level
+	return b.BlockNumber
 }
 
 func (b *Block) Time() time.Time {
-	return b.Header.ParsedTimestamp
+	return b.BlockTimestamp
 }
 
 func (b *Block) TransactionsCount() int {
-	total := 0
-	for _, operations := range b.Operations {
-		total += len(operations)
-	}
-	return total
+	// total := 0
+	// for _, operations := range b.Operations {
+	// 	total += len(operations)
+	// }
+	return int(b.TransactionCount)
 }
 
 // TO-DO
@@ -265,29 +283,29 @@ func (b *Block) GetMiner() string {
 }
 
 func (b *Block) ListActions() []core.Action {
-	if len(b.actions) > 0 {
-		return b.actions
-	}
-	var result []core.Action
-	for _, operations := range b.Operations {
-		for _, operation := range operations {
-			for _, content := range operation.Contents {
-				result = append(result, content)
-			}
-		}
-	}
-	b.actions = result
-	return result
+	// if len(b.actions) > 0 {
+	// 	return b.actions
+	// }
+	// var result []core.Action
+	// for _, operations := range b.Operations {
+	// 	for _, operation := range operations {
+	// 		for _, content := range operation.Contents {
+	// 			result = append(result, content)
+	// 		}
+	// 	}
+	// }
+	// b.actions = result
+	return nil
 }
 
-func (c Content) Name() string {
-	return c.Kind
-}
+// func (c Content) Name() string {
+// 	return c.Kind
+// }
 
-func (c Content) Receiver() string {
-	return c.Destination
-}
+// func (c Content) Receiver() string {
+// 	return c.Destination
+// }
 
-func (c Content) Sender() string {
-	return c.Source
-}
+// func (c Content) Sender() string {
+// 	return c.Source
+// }
