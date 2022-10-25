@@ -96,7 +96,7 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 			raw_bytes, _ := ioutil.ReadAll(resp.Body)
 			// check and get the cursor first
 			cursor_present, cursor_value = h.IsCursorPresent(string(raw_bytes))
-			temp_var := string(raw_bytes)[10:]
+			temp_var := string(raw_bytes)[9:]
 			// if ther cursor is present then remove it
 			if cursor_present{
 				result_string += string(h.RemoveCursor(temp_var))
@@ -112,7 +112,7 @@ func (h *Helium) makeRequestWithCursor(client *http.Client, blockNumber uint64, 
 			payloadstr := ""
 			// It is a special case where last data is type_witness
 			if (string(result_string[len(result_string) -1]) != "]"){
-				payloadstr = fmt.Sprintf(`}],"height": %d, "transaction_count": %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)				
+				payloadstr = fmt.Sprintf(`}],"height": %d, "transaction_count": %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)
 			} else {
 				payloadstr = fmt.Sprintf(`,"height": %d, "transaction_count": %v, "time": %d, "prev_hash": "%s", "hash": "%s"}`, blockNumber, transaction_count, int(data["data"]["time"].(float64)), prev_hash, hash)
 			}
@@ -146,7 +146,7 @@ func (h *Helium) RemoveCursor(raw_stream string) string {
 	// get cursor index, usually the last element, safe to remove
 	cursor_index := strings.Index(raw_stream, `,"cursor":"`)
 	// return the new string skip -2 elements
-	return raw_stream[0:cursor_index-2]
+	return raw_stream[0:cursor_index-2]+"},"
 }
 
 
