@@ -162,17 +162,75 @@ func (h *Helium) FetchData(filepath string, start, end uint64) error {
 // 	Amount      string
 // }
 
-// type PoCRequest struct {
-// 	Hash     string
-// 	Contents []Content
-// }
+type RewardsData struct {
+	Type 				string
+	Amount				uint64
+	Gateway 			string
+	Account   			string
+}
+
+type PayData struct {
+	Payee 				string
+	Amount				uint64
+}
+
+type GeoCodeInfo struct {
+	City 				string `json:"long_city"`
+	Country				string `json:"long_country"`
+	State				string `json:"long_state"`
+}
+
+type Witness struct {
+	Timestamp 				uint64
+	WitnessedByHotspot		string `json:"gateway"`
+	WitnessedByOwner		string `json:"owner"`
+	IsValid 				bool `json:"is_valid"`
+	SNR 					float64
+	Signal 					float64 // RSSI
+	Frequency 				float64
+}
+
+type WitnessPath struct {
+	WitnessList				[]Witness `json:"witnesses"`
+	ChallengedHotspot 		string `json:"challengee"`
+	ChallengedOwner 		string `json:"challengee_owner"`
+	ChallengeeGeoInfo		GeoCodeInfo `json:"geocode"`
+	
+}
 
 type TransactionData struct {
-	Version         uint64  `json:"version"`
-	Type            string
-	Timestamp       uint64  `json:"time"`
-	ParsedTimestamp time.Time
-	Hash            string
+	Version         		uint64  `json:"version"`
+	Type            		string
+	Timestamp       		uint64  `json:"time"`
+	ParsedTimestamp 		time.Time
+	Hash            		string
+	ChallengerHotspot		string `json:"challenger"`
+	ChallengerAccount		string `json:"challenger_owner"`
+	ChallengerLocation		string `json:"challenger_location"`
+	TransactionBlockHash	string `json:"block_hash"`
+	Height  				uint64 // used in Poc receipt, heartbeat and payment
+	// poc reciept related code
+	WitnessDataPath			[]WitnessPath `json:"path"`
+	// heartbeat related code
+	ReactivatedGateways  	[]string `json:"reactivated_gws"`
+	PoCKeyProposals  		[]string `json:"poc_key_proposals"`
+	ValidatorAdress  		string `json:"address"`
+	// payment related code
+	Payer  					string  // also used for asserted location
+	Fee  					uint64
+	PaymentData             []PayData `json:"payments"`
+	// Gateway added related code
+	AddedGateway   			string `json:"gateway"` // also used for AssertedHotspot 
+	AddedGatewayOwner 		string `json:"owner"` // also used for AssertedHotspotOwner
+	StakingFee  			uint64 `json:"staking_fee"` // also used for assert location
+	// ** Payer is also used here  i.e. address that paid the onboarding fee**`
+	AssertedOwnerLocation 	string `json:"location"`
+	ConsensusMembers        []string `json:"members"`
+	// Award transaction related code
+	StartEpoch   			uint64 `json:"start_epoch"`
+	EndEpoch                uint64 `json:"end_epoch"`
+	Rewards                 []RewardsData
+
 }
 
 type Block struct {
@@ -208,6 +266,16 @@ func (h *Helium) ParseBlock(rawLine []byte) (core.Block, error) {
 		return nil, err
 	}
 	block.BlockTimestamp = parsedTime
+	// if len (block.Transactions) > 0 {
+	// 	for i :=0; i < len (block.Transactions); i++ {
+	// 		if block.Transactions[i].Type == "poc_receipts_v1" || block.Transactions[i].Type == "poc_receipts_v2" {
+	// 			if len(block.Transactions[i].WitnessDataPath[0].WitnessList) == 0 {
+	// 				fmt.Println(block.Transactions[i].WitnessDataPath[0].ChallengeeGeoInfo.Country)
+	// 			}
+	// 		}
+	// 	}
+	// }
+
 	return &block, nil
 }
 
