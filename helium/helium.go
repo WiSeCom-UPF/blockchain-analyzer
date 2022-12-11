@@ -200,7 +200,9 @@ type WitnessPath struct {
 
 type TransactionData struct {
 	Version         		uint64  `json:"version"`
-	Type            		string
+	Source                  string
+	Destination             string
+	Kind            		string  `json:"type"`
 	Timestamp       		uint64  `json:"time"`
 	ParsedTimestamp 		time.Time
 	Hash            		string
@@ -230,7 +232,6 @@ type TransactionData struct {
 	StartEpoch   			uint64 `json:"start_epoch"`
 	EndEpoch                uint64 `json:"end_epoch"`
 	Rewards                 []RewardsData
-
 }
 
 type Block struct {
@@ -241,6 +242,8 @@ type Block struct {
 	Hash             string
 	PrevHash         string  `json:"prev_hash"`
 	Transactions     []TransactionData `json:"data"`
+	IsEmptyBlock     bool
+	actions          []core.Action
 }
 
 func New() *Helium {
@@ -275,6 +278,9 @@ func (h *Helium) ParseBlock(rawLine []byte) (core.Block, error) {
 	// 		}
 	// 	}
 	// }
+	if len(block.Transactions) == 0 {
+		block.IsEmptyBlock = true
+	}
 
 	return &block, nil
 }
@@ -333,10 +339,12 @@ func (b *Block) TransactionsCountByAddress(address string, by string) int {
 	return 0
 }
 
-// TO-DO
 func (b *Block) EmptyBlocksCount() int {
-	// not yet implemented
-	return 0
+	if b.IsEmptyBlock {
+		return 0
+	} else {
+		return 1
+	}
 }
 
 // TO-DO
@@ -351,29 +359,25 @@ func (b *Block) GetMiner() string {
 }
 
 func (b *Block) ListActions() []core.Action {
-	// if len(b.actions) > 0 {
-	// 	return b.actions
-	// }
-	// var result []core.Action
-	// for _, operations := range b.Operations {
-	// 	for _, operation := range operations {
-	// 		for _, content := range operation.Contents {
-	// 			result = append(result, content)
-	// 		}
-	// 	}
-	// }
-	// b.actions = result
-	return nil
+	if len(b.actions) > 0 {
+		return b.actions
+	}
+	var result []core.Action
+	for _, txn := range b.Transactions {
+		result = append(result, txn)
+	}
+	b.actions = result
+	return result
 }
 
-// func (c Content) Name() string {
-// 	return c.Kind
-// }
+func (t TransactionData) Name() string {
+	return t.Kind
+}
 
-// func (c Content) Receiver() string {
-// 	return c.Destination
-// }
+func (t TransactionData) Receiver() string {
+	return t.Destination
+}
 
-// func (c Content) Sender() string {
-// 	return c.Source
-// }
+func (t TransactionData) Sender() string {
+	return t.Source
+}
