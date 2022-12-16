@@ -324,14 +324,12 @@ type TimeGroupedSCCount struct {
 }
 
 type TimeGroupedTransactionCountByAddress struct {
-	Address           string
 	TransactionCounts map[time.Time]int
 	GroupedBy         time.Duration
 }
 
 func NewTimeGroupedTransactionCountByAddress(duration time.Duration, address string) *TimeGroupedTransactionCountByAddress {
 	return &TimeGroupedTransactionCountByAddress{
-		Address:           address,
 		TransactionCounts: make(map[time.Time]int),
 		GroupedBy:         duration,
 	}
@@ -399,6 +397,8 @@ func (sc *TimeGroupedSCCount) AddBlock(block Block) {
 	if _, ok := sc.SCCounts[group]; !ok {
 		sc.SCCounts[group] = 0
 	}
+	// if we pass the empty string in SSCount then 
+	// it calculates SC created count
 	tempValue, _ := block.SCCount("")
 	sc.SCCounts[group] += tempValue
 }

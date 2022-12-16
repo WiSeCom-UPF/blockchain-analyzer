@@ -220,7 +220,7 @@ type TransactionData struct {
 	// payment related code
 	Payer  					string  // also used for asserted location
 	Fee  					uint64
-	PaymentData             []PayData `json:"payments"`
+	PaymentData             PayData `json:"payments"`
 	// Gateway added related code
 	AddedGateway   			string `json:"gateway"` // also used for AssertedHotspot 
 	AddedGatewayOwner 		string `json:"owner"` // also used for AssertedHotspotOwner
@@ -335,8 +335,13 @@ func (b *Block) SCCount(by string) (int, []string) {
 
 // TO-DO
 func (b *Block) TransactionsCountByAddress(address string, by string) int {
-	// not yet implemented
-	return 0
+	txCounter := 0
+	for _, txn := range b.Transactions {
+		if by == txn.Kind {
+			txCounter = txCounter + 1
+		}
+	}
+	return txCounter
 }
 
 func (b *Block) EmptyBlocksCount() int {
@@ -375,9 +380,9 @@ func (t TransactionData) Name() string {
 }
 
 func (t TransactionData) Receiver() string {
-	return t.Destination
+	return t.PaymentData.Payee
 }
 
 func (t TransactionData) Sender() string {
-	return t.Source
+	return t.Payer
 }

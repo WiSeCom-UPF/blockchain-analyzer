@@ -284,6 +284,7 @@ func (b *Block) SCCount(by string) (int, []string) {
 	counter := 0
 	SCSignCounter := []string{}
 	if by == "" {
+		// this code is used to count the number of smart contract created
 		for _, txn := range b.BlockData.Transactions {
 			if txn.Destination == "" {
 				counter += 1
