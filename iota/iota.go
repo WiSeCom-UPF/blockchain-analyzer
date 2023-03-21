@@ -3,6 +3,7 @@ package iota
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -97,7 +98,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 
 	block := &Block{
 		BlockNumber: uint64(milestoneIndex),
-		MilestoneID: messageIDmilestone,
+		MilestoneID: hex.EncodeToString(messageIDmilestone[:]),
 		MilestoneIndex: milestoneIndex,
 	}
 
@@ -216,12 +217,11 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 		//fmt.Println("Referenced milestone index: ", *referencedMilestoneIndex)
 		//fmt.Println("Block milestone index: ", block.MilestoneIndex)
 		if *referencedMilestoneIndex != block.MilestoneIndex {
-			//fmt.Println("Stopping.... --> Message is referenced by another milestone index: ", *referencedMilestoneIndex)
 			ch <- nil
 			wg.Done()
 			return
 		} 
-		msgData := MessageData{MessageID: msgID, Message: *message}
+		msgData := MessageData{MessageID: hex.EncodeToString(msgID[:]), Message: *message}
 		block.Messages = append(block.Messages, msgData) // The message corresponding to the initial milestone won't be stored, just it's id and index and part of the block
 	}
 
@@ -259,7 +259,7 @@ func (i *Iota) FetchData(filepath string, start, end uint64) error {
 
 type Block struct {
 	BlockNumber        uint64           `json:"block_number"` 		// For now, block number corresponds to a milestone index, so it will be the same as the filed MilestoneIndex
-	MilestoneID        iotago.MessageID `json:"milestone_id"`
+	MilestoneID        string 			`json:"milestone_id"`
 	MilestoneIndex     uint32           `json:"milestone_index"`     
 	Messages           []MessageData    `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
 	MilestomeTimestamp uint64           `json:"milestone_timestamp"` // TODO: The time at which this milestone was issued ?
@@ -271,7 +271,7 @@ type Block struct {
 
 type MessageData struct {
 	Message     iotago.Message 		`json:"message"`
-	MessageID 	iotago.MessageID	`json:"message_id"`
+	MessageID 	string				`json:"message_id"`
 	NameMsg     string				// Adding these fields as required by the interface, but not used in IOTA
 	ReceiverMsg string
 	SenderMsg   string
