@@ -15,6 +15,7 @@ import (
 	"github.com/danhper/blockchain-analyzer/xrp"
 	"github.com/danhper/blockchain-analyzer/helium"
 	"github.com/danhper/blockchain-analyzer/iotex"
+	"github.com/danhper/blockchain-analyzer/iota"
 	"github.com/urfave/cli/v2"
 )
 
@@ -560,6 +561,11 @@ func main() {
 				Name:        "iotex",
 				Usage:       "Analyze IoTeX data",
 				Subcommands: addCommonCommands(iotex.New(), nil),
+			},
+			{
+				Name:        "iota",
+				Usage:       "Analyze IOTA data",
+				Subcommands: addCommonCommands(iota.New(), nil),
 			},
 		},
 	}
