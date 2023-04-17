@@ -10,6 +10,7 @@ Currently supported blockchains:
 - [EOS](https://eos.io/)
 - [XRP](https://ripple.com/xrp/)
 - [IOTEX](https://iotex.io/)
+- [Helium](https://www.helium.com/)
 
 ## Installation
 
@@ -31,7 +32,7 @@ To run IoTeX related command, run the following:
 $ cd cmd/blockchain-analyzer
 
 # from here run the normal command but using go run main.go
-$ go run main.go iotex fetch -o iotex-blocks.jsonl.gz --start 1 --end 16600000  
+$ go run main.go iotex fetch -o iotex-blocks.jsonl.gz --start 1 --end 19500000  
 ```
 
 ## Usage
@@ -56,6 +57,8 @@ The data has the following format
   - [Tezos](https://tezos.gitlab.io/api/rpc.html#get-block-id)
   - [XRP](https://xrpl.org/ledger.html)
   - [IoTeX](https://docs.iotex.io/basic-concepts/blockchain-actions)
+  - [Helium](https://docs.helium.com/api/blockchain/blocks)
+  
 - Grouped in files of 100,000 blocks each, suffixed by the block range (e.g. `eos-blocks-500000--599999.jsonl` and `eos-blocks-600000--699999.jsonl` for the above)
 - Gziped if the `.gz` extension is added to the output file name (recommended)
 
@@ -75,8 +78,6 @@ The simplest way to analyze the data is to provide a configuration file about wh
 blockchain-analyzer <tezos|eos|xrp> bulk-process -c config.json -o tmp/results.json
 ```
 
-Configuration files used for [our paper](https://arxiv.org/abs/2003.02693) can be found in the [config](./config) directory.
-
 The tool's help also contains information about what other commands can be used
 
 ```plain
@@ -92,6 +93,7 @@ COMMANDS:
    tezos    Analyze Tezos data
    xrp      Analyze XRP data
    iotex    Analyze IoTeX data
+   helium   Analyze Helium data
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
@@ -148,14 +150,15 @@ All the data used in our paper mentioned below can be downloaded from the follow
 
 https://imperialcollegelondon.box.com/s/jijwo76e2pxlbkuzzt1yjz0z3niqz7yy
 
-This includes data from October 1, 2019 to April 30, 2020 for EOS, Tezos and XRP, which corresponds to the following blocks:
+This includes data from October 1, 2019 to April 30, 2020 for EOS, Tezos and XRP, for IoT Blockchains such as IoTeX and Helium the blocks are regarded from the genesis until around September 2022, which corresponds to the following blocks:
 
 | Blockchain | Start block | End block |
 | ---------- | ----------: | --------: |
 | EOS        |    82152667 | 118286375 |
 | XRP        |    50399027 |  55152991 |
 | Tezos      |      630709 |    932530 |
-| IoTeX      |      1      |  16600000 |
+| IoTeX      |      1      |  19500000 |
+| Helium     |      1      |   1531124 |
 
 Please refer to the [Data format](https://github.com/danhper/blockchain-analyzer#data-format) section above for a description of the data format.
 
