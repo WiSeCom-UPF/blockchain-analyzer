@@ -126,6 +126,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 		block.BlockNumber = uint64(milestoneIndex)
 		block.MilestoneID = milestoneResponseUrl.MessageID
 		block.MilestoneIndex = milestoneIndex
+		block.MilestomeTimestamp = milestoneResponseUrl.Time
 
 		ch := make(chan error, len(msgResponseUrl.Parents))
 		wg := sync.WaitGroup{}
@@ -174,6 +175,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 		block.BlockNumber = uint64(milestoneIndex)
 		block.MilestoneID = hex.EncodeToString(messageIDmilestone[:])
 		block.MilestoneIndex = milestoneIndex
+		block.MilestomeTimestamp = milestoneResponse.Time
 
 		ch := make(chan error, len(miletsoneMessage.Parents))
 		wg := sync.WaitGroup{}
@@ -548,7 +550,7 @@ type Block struct {
 	MilestoneID        string        `json:"milestone_id"`
 	MilestoneIndex     uint32        `json:"milestone_index"`
 	Messages           []MessageData `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
-	MilestomeTimestamp uint64        `json:"milestone_timestamp"` // TODO: The time at which this milestone was issued ?
+	MilestomeTimestamp int64         `json:"milestone_timestamp"` 
 	BlockTimestamp     time.Time     `json:"block_timestamp"`     // TODO: should this be the milestone timestamp ?
 	MessagesCount      int           `json:"messages_count"`
 	IsEmptyBlock       bool          `json:"is_empty"`
