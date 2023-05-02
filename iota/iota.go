@@ -23,7 +23,7 @@ import (
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-const defaultNodeEndpoint string = "https://chrysalis-nodes.iota.cafe:443"
+const defaultNodeEndpoint string = "https://chrysalis-nodes.iota.cafe:443" //"https://iota-node.tanglebay.com" //
 
 type Iota struct {
 	NodeEndpoint string
@@ -464,7 +464,7 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 	message, err := client.MessageByMessageID(ctx, msgID)
 	if err != nil {
-		ch <- err
+		ch <- fmt.Errorf("Error getting the message from its ID: ", err.Error())
 		wg.Done()
 		return
 	}
@@ -490,8 +490,7 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 		msgMetadata, err := client.MessageMetadataByMessageID(ctx, msgID)
 		if err != nil {
-			fmt.Println("Error getting the message metadata: ", err)
-			ch <- err
+			ch <- fmt.Errorf("Error getting the message metadata: ", err.Error())
 			wg.Done()
 			return
 		}
@@ -527,7 +526,8 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 	for err := range ch2 {
 		if err != nil {
-			fmt.Println("received err from channel child")
+			fmt.Println("received err from channel child: " +  err.Error())
+			log.Println("received err from challe child: " + err.Error())
 			//ch <- err // TODO: test if this cause recursion to not stop when errors happen
 		}
 	}
@@ -652,9 +652,9 @@ func (b *Block) TransactionsCountByAddress(address string, by string) int {
 func (b *Block) EmptyBlocksCount() int {
 	if b.IsEmptyBlock {
 		return 0
-	} else {
-		return 1
 	}
+	return 1
+	
 }
 
 // TO-DO
