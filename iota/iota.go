@@ -236,17 +236,16 @@ func getType(msg *iotago.Message) (int, error) {
 	}
 	jsonMsg, err := msg.Payload.MarshalJSON()
 	if err != nil {
-		return -1, fmt.Errorf("Error marshaling payload of message to get type: %s", err)
+		return -10, fmt.Errorf("Error marshaling payload of message to get type: %s", err)
 	}
 
 	t := Type{}
 	if err := json.Unmarshal(jsonMsg, &t); err != nil {
-		fmt.Println(err)
-		return -1, err
+		return -10, fmt.Errorf("Error unmarsahling json message to get type: %s", err)
 	}
 
 	if t.Type == nil {
-		return -1, fmt.Errorf("Type was not set in payload")
+		return -10, fmt.Errorf("Type was not set in payload")
 	}
 	return *t.Type, nil
 }
@@ -555,6 +554,10 @@ type Block struct {
 	MessagesCount      int           `json:"messages_count"`
 	IsEmptyBlock       bool          `json:"is_empty"`
 	actions            []core.Action
+	IndxPayldCnt		int64
+	SgnedTxnPayldCnt	int64
+	MilstnPayldCnt		int64
+	NoPaylodCnt			int64
 }
 
 type MessageData struct {
@@ -568,10 +571,45 @@ type MessageData struct {
 func (i *Iota) ParseBlock(rawLine []byte) (core.Block, error) { // TODO: yet to implement
 
 	var block Block
-	// if err := json.Unmarshal(rawLine, &block); err != nil {
-	// 	fmt.Println(err)
-	// 	return nil, err
-	// }
+	if err := json.Unmarshal(rawLine, &block); err != nil {
+		fmt.Println("Error unmarshaling block inside ParseBlock for IOTA block: ", err.Error())
+		return nil, err
+	}
+
+	block.SgnedTxnPayldCnt = 0
+	block.MilstnPayldCnt = 0
+	block.IndxPayldCnt = 0
+	block.NoPaylodCnt = 0
+	block.BlockTimestamp = time.Unix(block.MilestomeTimestamp, 0)
+
+	if len(block.Messages) > 0 {
+		for _, message := range block.Messages {
+			ty, err := getType(&message.Message)
+			if err != nil {
+				fmt.Println(err)
+				return nil, err
+			}
+			switch ty {
+			case 0:
+				block.SgnedTxnPayldCnt +=1
+				break
+			case 1:
+				block.MilstnPayldCnt += 1
+				break
+			case 2:
+				block.IndxPayldCnt += 1
+				break
+			case -1: 
+				block.NoPaylodCnt += 1
+			default:
+				fmt.Printf("Found message with unsual payload type: %d, messageID: %s",  ty,  message.MessageID)
+				// TODO: store in a map in the block as well??
+			}
+
+		}
+	}
+
+
 
 	// parsedTime, err := h.ConvertDecimalTimestampToTime(block.Timestamp)
 	// if err != nil {
@@ -612,7 +650,9 @@ func (b *Block) Number() uint64 {
 }
 
 func (b *Block) Time() time.Time {
-	return b.BlockTimestamp
+	//return b.BlockTimestamp
+	tm := time.Unix(b.MilestomeTimestamp, 0)
+	return tm
 }
 
 func (b *Block) TransactionsCount() int {
