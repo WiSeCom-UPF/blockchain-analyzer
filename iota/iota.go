@@ -23,7 +23,7 @@ import (
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-const defaultNodeEndpoint string = "https://chrysalis-nodes.iota.cafe:443" //"https://iota-node.tanglebay.com" //
+const defaultNodeEndpoint string = "https://chrysalis-nodes.iota.cafe:443" //"http://localhost:80"// "https://chrysalis-nodes.iota.cafe:443"//"https://chrysalis-nodes.iota.cafe:443" //"https://iota-node.tanglebay.com" //
 
 type Iota struct {
 	NodeEndpoint string
@@ -139,10 +139,10 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 
 		for err := range ch {
 			if err != nil {
-				resp.StatusCode = 500
+		resp.StatusCode = 500
 				fmt.Println("Error getting the block: ", err)
 				log.Println("Error getting the block: ", err)
-				return resp, err
+		return resp, err
 			}
 		}
 
@@ -463,7 +463,7 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 	message, err := client.MessageByMessageID(ctx, msgID)
 	if err != nil {
-		ch <- fmt.Errorf("Error getting the message from its ID: ", err.Error())
+		ch <- fmt.Errorf("Error getting the message from its ID: %s", err.Error())
 		wg.Done()
 		return
 	}
@@ -489,7 +489,7 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 		msgMetadata, err := client.MessageMetadataByMessageID(ctx, msgID)
 		if err != nil {
-			ch <- fmt.Errorf("Error getting the message metadata: ", err.Error())
+			ch <- fmt.Errorf("Error getting the message metadata: %s", err.Error())
 			wg.Done()
 			return
 		}
@@ -497,6 +497,7 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 		referencedMilestoneIndex := msgMetadata.ReferencedByMilestoneIndex
 		if referencedMilestoneIndex == nil {
 			ch <- fmt.Errorf("Referenced milestone index of message is nil")
+			//ch <- nil // TODO: what to do here?? Get this from the explorer? Add autopeering with tanglebay?
 			wg.Done()
 			return
 		}
@@ -507,7 +508,17 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 			wg.Done()
 			return
 		}
-		msgData := MessageData{MessageID: hex.EncodeToString(msgID[:]), Message: *message}
+
+		msgData := MessageData{
+			MessageID: hex.EncodeToString(msgID[:]), 
+			Message: *message,
+			IsSolid: msgMetadata.Solid,
+			LedgerInclusionState: msgMetadata.LedgerInclusionState,
+			ConflictReason: msgMetadata.ConflictReason,
+			ShouldPromote: msgMetadata.ShouldPromote,
+			ShouldReattach: msgMetadata.ShouldReattach,
+		}
+		
 		block.Messages = append(block.Messages, msgData) // The message corresponding to the initial milestone won't be stored, just it's id and index and part of the block
 	}
 
@@ -563,6 +574,11 @@ type Block struct {
 type MessageData struct {
 	Message     iotago.Message `json:"message"`
 	MessageID   string         `json:"message_id"`
+	IsSolid 	bool			`json:"isSolid"`
+	LedgerInclusionState *string `json:"ledgerInclusionState"`
+	ConflictReason uint8 `json:"conflictReason,omitempty"`
+	ShouldPromote *bool `json:"shouldPromote,omitempty"`
+	ShouldReattach *bool `json:"shouldReattach,omitempty"`
 	NameMsg     string         // Adding these fields as required by the interface, but not used in IOTA
 	ReceiverMsg string
 	SenderMsg   string
