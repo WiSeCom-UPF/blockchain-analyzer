@@ -166,3 +166,18 @@ func (c Content) Receiver() string {
 func (c Content) Sender() string {
 	return c.Source
 }
+
+func (b *Block) IndexationPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block)	SignedTransactionPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block)	NoPayloadCount() int {
+	// not-implemented
+	return 0
+}

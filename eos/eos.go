@@ -171,6 +171,21 @@ func (b *Block) GetMiner() string {
 	return ""
 }
 
+func (b *Block) IndexationPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block)	SignedTransactionPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block)	NoPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
 func (b *Block) ListActions() []core.Action {
 	if len(b.actions) > 0 {
 		return b.actions

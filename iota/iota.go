@@ -126,7 +126,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 		block.BlockNumber = uint64(milestoneIndex)
 		block.MilestoneID = milestoneResponseUrl.MessageID
 		block.MilestoneIndex = milestoneIndex
-		block.MilestomeTimestamp = milestoneResponseUrl.Time
+		block.MilestoneTimestamp = milestoneResponseUrl.Time
 
 		ch := make(chan error, len(msgResponseUrl.Parents))
 		wg := sync.WaitGroup{}
@@ -175,7 +175,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 		block.BlockNumber = uint64(milestoneIndex)
 		block.MilestoneID = hex.EncodeToString(messageIDmilestone[:])
 		block.MilestoneIndex = milestoneIndex
-		block.MilestomeTimestamp = milestoneResponse.Time
+		block.MilestoneTimestamp = milestoneResponse.Time
 
 		ch := make(chan error, len(miletsoneMessage.Parents))
 		wg := sync.WaitGroup{}
@@ -560,7 +560,7 @@ type Block struct {
 	MilestoneID        string        `json:"milestone_id"`
 	MilestoneIndex     uint32        `json:"milestone_index"`
 	Messages           []MessageData `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
-	MilestomeTimestamp int64         `json:"milestone_timestamp"` 
+	MilestoneTimestamp int64         `json:"milestone_timestamp"` 
 	BlockTimestamp     time.Time     `json:"block_timestamp"`     // TODO: should this be the milestone timestamp ?
 	MessagesCount      int           `json:"messages_count"`
 	IsEmptyBlock       bool          `json:"is_empty"`
@@ -596,7 +596,7 @@ func (i *Iota) ParseBlock(rawLine []byte) (core.Block, error) { // TODO: yet to 
 	block.MilstnPayldCnt = 0
 	block.IndxPayldCnt = 0
 	block.NoPaylodCnt = 0
-	block.BlockTimestamp = time.Unix(block.MilestomeTimestamp, 0)
+	block.BlockTimestamp = time.Unix(block.MilestoneTimestamp, 0)
 
 	if len(block.Messages) > 0 {
 		for _, message := range block.Messages {
@@ -657,6 +657,18 @@ func (i *Iota) ConvertDecimalTimestampToTime(timeStamp uint64) (time.Time, error
 	return parsedTime, err
 }
 
+func (b *Block) IndexationPayloadCount() int {
+	return int(b.IndxPayldCnt)
+}
+
+func (b *Block) SignedTransactionPayloadCount() int {
+	return int(b.SgnedTxnPayldCnt)
+}
+
+func (b *Block) NoPayloadCount() int {
+	return int(b.NoPaylodCnt)
+}
+
 func (i *Iota) EmptyBlock() core.Block {
 	return &Block{}
 }
@@ -667,7 +679,7 @@ func (b *Block) Number() uint64 {
 
 func (b *Block) Time() time.Time {
 	//return b.BlockTimestamp
-	tm := time.Unix(b.MilestomeTimestamp, 0)
+	tm := time.Unix(b.MilestoneTimestamp, 0)
 	return tm
 }
 
@@ -707,9 +719,9 @@ func (b *Block) TransactionsCountByAddress(address string, by string) int {
 
 func (b *Block) EmptyBlocksCount() int {
 	if b.IsEmptyBlock {
-		return 0
+		return 1
 	}
-	return 1
+	return 0
 	
 }
 

@@ -649,6 +649,9 @@ func (scg *SCGroupedActions) GetCount(key string) uint64 {
 
 
 type TransactionCounter int
+type IndexationPayloadCounter int
+type SignedTransactionPayloadCounter int
+type NoPayloadCounter int
 type MaxTransactionBlockCounter int
 type GovernanceCounter int
 type SCCounter struct {
@@ -694,6 +697,33 @@ func NewEmptyBlockCounter() *EmptyBlockCounter {
 func NewZeroTxnBlockCounter() *ZeroTxnBlockCounter {
 	value := 0
 	return (*ZeroTxnBlockCounter)(&value)
+}
+
+func NewIndexationPayloadCounter() *IndexationPayloadCounter {
+	value := 0
+	return (*IndexationPayloadCounter)(&value)
+}
+
+func (t *IndexationPayloadCounter) AddBlock(block Block) {
+	*t += (IndexationPayloadCounter)(block.IndexationPayloadCount())
+}
+
+func NewSignedTransactionPayloadCounter() *SignedTransactionPayloadCounter {
+	value := 0
+	return (*SignedTransactionPayloadCounter)(&value)
+}
+
+func (t *SignedTransactionPayloadCounter) AddBlock(block Block) {
+	*t += (SignedTransactionPayloadCounter)(block.SignedTransactionPayloadCount())
+}
+
+func NewNoPayloadCounter() *NoPayloadCounter {
+	value := 0
+	return (*NoPayloadCounter)(&value)
+}
+
+func (t *NoPayloadCounter) AddBlock(block Block) {
+	*t += (NoPayloadCounter)(block.NoPayloadCount())
 }
 
 func (t *TransactionCounter) AddBlock(block Block) {

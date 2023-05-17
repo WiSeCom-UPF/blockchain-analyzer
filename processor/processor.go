@@ -94,6 +94,7 @@ func YieldAllBlocks(
 	globPattern string,
 	blockchain core.Blockchain,
 	start, end uint64) (<-chan core.Block, error) {
+		fmt.Println("patter: ", globPattern)
 	files, err := filepath.Glob(globPattern)
 	if err != nil {
 		return nil, err
@@ -462,3 +463,38 @@ func OneToOneCount(blockchain core.Blockchain, globPattern string,
 	return oneToOneCount, nil
 }
 
+func CountIndexationPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewIndexationPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountSignedTransactionPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewSignedTransactionPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountNoPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewNoPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}

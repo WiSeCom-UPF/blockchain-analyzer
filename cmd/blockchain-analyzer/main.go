@@ -10,12 +10,12 @@ import (
 
 	"github.com/danhper/blockchain-analyzer/core"
 	"github.com/danhper/blockchain-analyzer/eos"
+	"github.com/danhper/blockchain-analyzer/helium"
+	"github.com/danhper/blockchain-analyzer/iota"
+	"github.com/danhper/blockchain-analyzer/iotex"
 	"github.com/danhper/blockchain-analyzer/processor"
 	"github.com/danhper/blockchain-analyzer/tezos"
 	"github.com/danhper/blockchain-analyzer/xrp"
-	"github.com/danhper/blockchain-analyzer/helium"
-	"github.com/danhper/blockchain-analyzer/iotex"
-	"github.com/danhper/blockchain-analyzer/iota"
 	"github.com/urfave/cli/v2"
 )
 
@@ -532,6 +532,103 @@ var eosCommands []*cli.Command = []*cli.Command{
 	},
 }
 
+var iotaCommands []*cli.Command = []*cli.Command{
+	{
+		Name:  "count-messages",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountTransactions(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-messages-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "Count number of messages over time in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.CountTransactionsOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "count-empty-blocks",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "iota specific: Count the number of empty blocks in the data, i.e. blocks with no messages",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountEmptyBlocks(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d empty blocks\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-indexation-payload",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data which have an indexation payload",
+		Action: makeAction(func(c *cli.Context) error {
+			fmt.Println("pp: ", c.String("pattern"))
+			count, err := processor.CountIndexationPayload(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages with indexation payload\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-signed-transaction-payload",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data which have a signed transaction payload",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountSignedTransactionPayload(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages with signed transaction payload\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-no-payload",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data which have a no payload",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountNoPayload(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages with no payload\n", count)
+			return nil
+		}),
+	},
+}
+
 func main() {
 	app := &cli.App{
 		Usage: "Tool to fetch and analyze blockchain transactions",
@@ -565,7 +662,7 @@ func main() {
 			{
 				Name:        "iota",
 				Usage:       "Analyze IOTA data",
-				Subcommands: addCommonCommands(iota.New(), nil),
+				Subcommands: iotaCommands,
 			},
 		},
 	}

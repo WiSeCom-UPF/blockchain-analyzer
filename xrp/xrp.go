@@ -143,3 +143,18 @@ func (t Transaction) Receiver() string {
 func (t Transaction) Name() string {
 	return t.TransactionType
 }
+
+func (b *Ledger) IndexationPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Ledger)	SignedTransactionPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Ledger)	NoPayloadCount() int {
+	// not-implemented
+	return 0
+}

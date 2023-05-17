@@ -22,6 +22,10 @@ type Block interface {
 	Time() time.Time
 	GetMiner() string
 	ListActions() []Action
+	// IOTA specific
+	IndexationPayloadCount() int
+	SignedTransactionPayloadCount() int
+	NoPayloadCount() int
 }
 
 type Action interface {
