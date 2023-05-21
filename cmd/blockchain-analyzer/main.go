@@ -582,6 +582,24 @@ var iotaCommands []*cli.Command = []*cli.Command{
 		}),
 	},
 	{
+		Name:  "count-empty-blocks-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "iota specific: Count number of empty blocks (i.e. blocks with no messages) over time in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.CountEmptyBlocksOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
 		Name:  "count-indexation-payload",
 		Flags: addPatternFlag(addRangeFlags(nil, false)),
 		Usage: "Count the number of messages in the data which have an indexation payload",
@@ -595,6 +613,24 @@ var iotaCommands []*cli.Command = []*cli.Command{
 			}
 			fmt.Printf("found %d messages with indexation payload\n", count)
 			return nil
+		}),
+	},
+	{
+		Name:  "count-indexation-payload-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "iota specific: Count number of messages with indexation payload over time in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.CountIndexationPayloadOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
 		}),
 	},
 	{
@@ -613,6 +649,24 @@ var iotaCommands []*cli.Command = []*cli.Command{
 		}),
 	},
 	{
+		Name:  "count-signed-transaction-payload-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "iota specific: Count number of messages with signed transaction payload over time in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.CountSgnTransactionPayloadOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
 		Name:  "count-no-payload",
 		Flags: addPatternFlag(addRangeFlags(nil, false)),
 		Usage: "Count the number of messages in the data which have a no payload",
@@ -625,6 +679,228 @@ var iotaCommands []*cli.Command = []*cli.Command{
 			}
 			fmt.Printf("found %d messages with no payload\n", count)
 			return nil
+		}),
+	},
+	{
+		Name:  "count-no-payload-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "iota specific: Count number of messages with no payload over time in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.CountNoPayloadOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "count-other-payload",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data which have a payload other than 0,1,2",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountOtherPayload(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages with other payload\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-not-solid-messages",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data which have not been marked as solid",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountOtherPayload(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages not marked as solid\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-conflicts",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Count the number of messages in the data which have a transaction marked as conflicting",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.CountConflicting(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("found %d messages with conflicting transactions\n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "count-conflicts-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "iota specific: Count number of messages which have a transaction marked as conflicting over time in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.CountConflictingOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "group-conflicts",
+		Flags: addPatternFlag(addOutputFlag(addRangeFlags(nil, false))),
+		Usage: "Count and group the number of messages in the data which have a transaction marked as conflicting per conflict type",
+		Action: makeAction(func(c *cli.Context) error {
+			counts, err := processor.GroupConflicting(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "group-by-index",
+		Flags: addPatternFlag(addOutputFlag(addRangeFlags(nil, false))),
+		Usage: "Count and group the number of messages in the data which have indexation payload per index",
+		Action: makeAction(func(c *cli.Context) error {
+			counts, err := processor.GroupByIndex(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "group-by-index-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "Count and group the number of messages in the data which have indexation payload per index over time",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.GroupByIndexOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "group-by-output-address",
+		Flags: addPatternFlag(addOutputFlag(addRangeFlags(nil, false))),
+		Usage: "Count and group the number of messages in the data which have transaction payload per outputs address",
+		Action: makeAction(func(c *cli.Context) error {
+			counts, err := processor.GroupByAddress(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "average-value-spent-transaction",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Returns the average value spent per transaction after computing the mean among all value transactions",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.AvegareValueTransactions(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("The average value spent in a transaction is: %f \n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "average-value-spent-transaction-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "Returns the average value spent per transaction after computing the mean among all value transactions over time",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.AvegareValueTransactionsOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
+		Name:  "average-time-between-milestones",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Returns the average time between the issuing of two consecutive milestones",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.AvegareTimeMilestones(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("The average time between issued consecutive milestones is: %f \n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "average-time-between-milestones-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "Returns the average time between the issuing of two consecutive milestones over time",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+
+			count, err := processor.AvegareTimeMilestonesOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(count, c.String("output"))
+		}),
+	},
+	{
+		Name:  "group-signed-transactions-by-index",
+		Flags: addPatternFlag(addOutputFlag(addRangeFlags(nil, false))),
+		Usage: "Count and group the number of messages in the data with a signed transaction payload by index",
+		Action: makeAction(func(c *cli.Context) error {
+			counts, err := processor.GroupSgndTransactionsByIndex(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
 		}),
 	},
 }

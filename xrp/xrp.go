@@ -158,3 +158,43 @@ func (b *Ledger)	NoPayloadCount() int {
 	// not-implemented
 	return 0
 }
+
+func (b *Ledger) OtherPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Ledger) NoSolidCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Ledger)	ConflictsCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Ledger) GetGroupedConflicts() *map[int]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Ledger) GetGroupedIndexes() *map[string]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Ledger) GetGroupedAddresses() *map[string]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Ledger) GetValuesSpent() *[]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Ledger) GetGroupedIndexesTransactions() *map[string]int {
+	// not-implemented
+	return nil
+}

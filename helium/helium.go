@@ -378,6 +378,46 @@ func (b *Block)	NoPayloadCount() int {
 	return 0
 }
 
+func (b *Block) OtherPayloadCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block) NoSolidCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block)	ConflictsCount() int {
+	// not-implemented
+	return 0
+}
+
+func (b *Block) GetGroupedConflicts() *map[int]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Block) GetGroupedIndexes() *map[string]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Block) GetGroupedAddresses() *map[string]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Block) GetValuesSpent() *[]int {
+	// not-implemented
+	return nil
+}
+
+func (b *Block) GetGroupedIndexesTransactions() *map[string]int {
+	// not-implemented
+	return nil
+}
+
 func (b *Block) ListActions() []core.Action {
 	if len(b.actions) > 0 {
 		return b.actions

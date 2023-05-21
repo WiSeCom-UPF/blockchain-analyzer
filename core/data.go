@@ -407,6 +407,297 @@ func (sc *TimeGroupedSCCount) Result() interface{} {
 	return sc
 }
 
+type TimeGroupedIndexationCount struct {
+	IndexationCounts map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedIndexationCount(duration time.Duration) *TimeGroupedIndexationCount {
+	return &TimeGroupedIndexationCount{
+		IndexationCounts: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedIndexationCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.IndexationCounts[group]; !ok {
+		g.IndexationCounts[group] = 0
+	}
+	g.IndexationCounts[group] += block.IndexationPayloadCount()
+}
+
+func (g *TimeGroupedIndexationCount) Result() interface{} {
+	return g
+}
+
+type TimeGroupedSignedTransactionCount struct {
+	SgnTransactionCounts map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedSignedTransactionCount(duration time.Duration) *TimeGroupedSignedTransactionCount {
+	return &TimeGroupedSignedTransactionCount{
+		SgnTransactionCounts: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedSignedTransactionCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.SgnTransactionCounts[group]; !ok {
+		g.SgnTransactionCounts[group] = 0
+	}
+	g.SgnTransactionCounts[group] += block.SignedTransactionPayloadCount()
+}
+
+func (g *TimeGroupedSignedTransactionCount) Result() interface{} {
+	return g
+}
+
+type TimeGroupedNoPayloadCount struct {
+	NoPayloadCounts map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedNoPayloadCount(duration time.Duration) *TimeGroupedNoPayloadCount {
+	return &TimeGroupedNoPayloadCount{
+		NoPayloadCounts: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedNoPayloadCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.NoPayloadCounts[group]; !ok {
+		g.NoPayloadCounts[group] = 0
+	}
+	g.NoPayloadCounts[group] += block.NoPayloadCount()
+}
+
+func (g *TimeGroupedNoPayloadCount) Result() interface{} {
+	return g
+}
+
+type TimeGroupedConflictsCount struct {
+	ConflictsCounts map[time.Time]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedConflictsCount(duration time.Duration) *TimeGroupedConflictsCount {
+	return &TimeGroupedConflictsCount{
+		ConflictsCounts: make(map[time.Time]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedConflictsCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.ConflictsCounts[group]; !ok {
+		g.ConflictsCounts[group] = 0
+	}
+	g.ConflictsCounts[group] += block.ConflictsCount()
+}
+
+func (g *TimeGroupedConflictsCount) Result() interface{} {
+	return g
+}
+
+type GroupedConflictsCount struct {
+	GroupedConflicts map[int]int
+}
+
+func NewGroupedConflictsCount() *GroupedConflictsCount {
+	return &GroupedConflictsCount{
+		GroupedConflicts: make(map[int]int),
+	}
+}
+
+func (g *GroupedConflictsCount) AddBlock(block Block) {
+
+	gConflicts := block.GetGroupedConflicts()
+	if gConflicts == nil {
+		return
+	}
+
+	for key, value := range *gConflicts {
+        g.GroupedConflicts[key] += value
+    }
+}
+
+func (g *GroupedConflictsCount) Result() interface{} {
+	return g
+}
+
+type GroupedByIndexCount struct {
+	GroupedIndexes map[string]int
+}
+
+func NewGroupedByIndexCount() *GroupedByIndexCount {
+	return &GroupedByIndexCount{
+		GroupedIndexes: make(map[string]int),
+	}
+}
+
+func (g *GroupedByIndexCount) AddBlock(block Block) {
+
+	gIndexes := block.GetGroupedIndexes()
+	if gIndexes == nil {
+		return
+	}
+
+	for key, value := range *gIndexes {
+        g.GroupedIndexes[key] += value
+    }
+}
+
+func (g *GroupedByIndexCount) Result() interface{} {
+	return g
+}
+
+type GroupedSgnTransactionsByIndexCount struct {
+	GroupedIndexes map[string]int
+}
+
+func NewGroupedSgnTransactionsByIndexCount() *GroupedSgnTransactionsByIndexCount {
+	return &GroupedSgnTransactionsByIndexCount{
+		GroupedIndexes: make(map[string]int),
+	}
+}
+
+func (g *GroupedSgnTransactionsByIndexCount) AddBlock(block Block) {
+
+	gIndexes := block.GetGroupedIndexesTransactions()
+	if gIndexes == nil {
+		return
+	}
+
+	for key, value := range *gIndexes {
+        g.GroupedIndexes[key] += value
+    }
+}
+
+func (g *GroupedSgnTransactionsByIndexCount) Result() interface{} {
+	return g
+}
+
+type TimeGroupedByIndexCount struct {
+	TimeIndexesCounts map[time.Time]map[string]int
+	GroupedBy         time.Duration
+}
+
+func NewTimeGroupedByIndexCount(duration time.Duration) *TimeGroupedByIndexCount {
+	return &TimeGroupedByIndexCount{
+		TimeIndexesCounts: make(map[time.Time]map[string]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeGroupedByIndexCount) AddBlock(block Block) {
+
+	gIndexes := block.GetGroupedIndexes()
+	if gIndexes == nil {
+		return
+	}
+
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.TimeIndexesCounts[group]; !ok {
+		g.TimeIndexesCounts[group] = make(map[string]int)
+	}
+
+	for key, value := range *gIndexes {
+        g.TimeIndexesCounts[group][key] += value
+    }
+}
+
+func (g *TimeGroupedByIndexCount) Result() interface{} {
+	return g
+}
+
+
+type GroupedByAddressCount struct {
+	GroupedAddresses map[string]int
+}
+
+func NewGroupedByAddressCount() *GroupedByAddressCount {
+	return &GroupedByAddressCount{
+		GroupedAddresses: make(map[string]int),
+	}
+}
+
+func (g *GroupedByAddressCount) AddBlock(block Block) {
+
+	gAddrs := block.GetGroupedAddresses()
+	if gAddrs == nil {
+		return
+	}
+
+	for key, value := range *gAddrs {
+        g.GroupedAddresses[key] += value
+    }
+}
+
+func (g *GroupedByAddressCount) Result() interface{} {
+	return g
+}
+
+type Stats struct {
+	Max			int	
+	Min 		int
+	Median 		float64
+	Average 	float64
+}
+
+type TimeAverageValuesCount struct {
+	AverageValues 		map[time.Time][]int
+	FinalAverages		map[time.Time]Stats
+	GroupedBy         	time.Duration
+}
+
+func NewTimeAverageValuesCount(duration time.Duration) *TimeAverageValuesCount {
+	return &TimeAverageValuesCount{
+		AverageValues: make(map[time.Time][]int),
+		GroupedBy:         duration,
+	}
+}
+
+func (g *TimeAverageValuesCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.AverageValues[group]; !ok {
+		g.AverageValues[group] = []int{}
+	}
+	g.AverageValues[group] = append(g.AverageValues[group], *block.GetValuesSpent()...)
+}
+
+func (g *TimeAverageValuesCount) Result() interface{} {
+	return g
+}
+
+type TimeAverageMilestonesTimeCount struct {
+	AverageValues 		map[time.Time][]int64
+	FinalAverages		map[time.Time]int64
+	GroupedBy         	time.Duration
+}
+
+func NewTimeAverageMilestonesTimeCount(duration time.Duration) *TimeAverageMilestonesTimeCount {
+	return &TimeAverageMilestonesTimeCount{
+		AverageValues: 		make(map[time.Time][]int64),
+		GroupedBy:         	duration,
+	}
+}
+
+func (g *TimeAverageMilestonesTimeCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.AverageValues[group]; !ok {
+		g.AverageValues[group] = []int64{}
+	}
+	g.AverageValues[group] = append(g.AverageValues[group], block.Time().Unix())
+}
+
+func (g *TimeAverageMilestonesTimeCount) Result() interface{} {
+	return g
+}
+
 type ActionGroup struct {
 	Name      string
 	Count     uint64
@@ -652,6 +943,11 @@ type TransactionCounter int
 type IndexationPayloadCounter int
 type SignedTransactionPayloadCounter int
 type NoPayloadCounter int
+type OtherPayloadCounter int
+type NoSolidCounter int
+type ConflictsCounter int
+type AverageValuesAppender []int
+type TimeMilestonesCounter []int64
 type MaxTransactionBlockCounter int
 type GovernanceCounter int
 type SCCounter struct {
@@ -715,6 +1011,53 @@ func NewSignedTransactionPayloadCounter() *SignedTransactionPayloadCounter {
 
 func (t *SignedTransactionPayloadCounter) AddBlock(block Block) {
 	*t += (SignedTransactionPayloadCounter)(block.SignedTransactionPayloadCount())
+}
+
+func NewConflictsCounter() *ConflictsCounter {
+	value := 0
+	return (*ConflictsCounter)(&value)
+}
+
+func (t *ConflictsCounter) AddBlock(block Block) {
+	*t += (ConflictsCounter)(block.ConflictsCount())
+}
+
+func NewAverageValuesCounter() *AverageValuesAppender {
+	value := []int{}
+	return (*AverageValuesAppender)(&value)
+}
+
+func (t *AverageValuesAppender) AddBlock(block Block) {
+	if *block.GetValuesSpent() != nil && len(*block.GetValuesSpent()) > 0 {
+		*t = append(*t, *block.GetValuesSpent()...)
+	}
+}
+
+func NewTimeMilestonesCounter() *TimeMilestonesCounter {
+	value := []int64{}
+	return (*TimeMilestonesCounter)(&value)
+}
+
+func (t *TimeMilestonesCounter) AddBlock(block Block) {
+	*t = append(*t, block.Time().Unix())
+}
+
+func NewOtherPayloadCounter() *OtherPayloadCounter {
+	value := 0
+	return (*OtherPayloadCounter)(&value)
+}
+
+func (t *OtherPayloadCounter) AddBlock(block Block) {
+	*t += (OtherPayloadCounter)(block.OtherPayloadCount())
+}
+
+func NewNoSolidCounter() *NoSolidCounter {
+	value := 0
+	return (*NoSolidCounter)(&value)
+}
+
+func (t *NoSolidCounter) AddBlock(block Block) {
+	*t += (NoSolidCounter)(block.NoSolidCount())
 }
 
 func NewNoPayloadCounter() *NoPayloadCounter {
