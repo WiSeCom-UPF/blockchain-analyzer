@@ -698,6 +698,31 @@ func (g *TimeAverageMilestonesTimeCount) Result() interface{} {
 	return g
 }
 
+type TimeAverageMessagesPerBlockCount struct {
+	AverageValues 		map[time.Time][]int64
+	FinalAverages		map[time.Time]int64
+	GroupedBy         	time.Duration
+}
+
+func NewTimeAverageMessagesPerBlockCount(duration time.Duration) *TimeAverageMessagesPerBlockCount {
+	return &TimeAverageMessagesPerBlockCount{
+		AverageValues: 		make(map[time.Time][]int64),
+		GroupedBy:         	duration,
+	}
+}
+
+func (g *TimeAverageMessagesPerBlockCount) AddBlock(block Block) {
+	group := block.Time().Truncate(g.GroupedBy)
+	if _, ok := g.AverageValues[group]; !ok {
+		g.AverageValues[group] = []int64{}
+	}
+	g.AverageValues[group] = append(g.AverageValues[group], int64(block.TransactionsCount()))
+}
+
+func (g *TimeAverageMessagesPerBlockCount) Result() interface{} {
+	return g
+}
+
 type ActionGroup struct {
 	Name      string
 	Count     uint64
@@ -947,6 +972,7 @@ type OtherPayloadCounter int
 type NoSolidCounter int
 type ConflictsCounter int
 type AverageValuesAppender []int
+type AverageMessagePerBlock []int
 type TimeMilestonesCounter []int64
 type MaxTransactionBlockCounter int
 type GovernanceCounter int
@@ -1020,6 +1046,16 @@ func NewConflictsCounter() *ConflictsCounter {
 
 func (t *ConflictsCounter) AddBlock(block Block) {
 	*t += (ConflictsCounter)(block.ConflictsCount())
+}
+
+func NewAverageMessagePerBlock() *AverageMessagePerBlock {
+	value := []int{}
+	return (*AverageMessagePerBlock)(&value)
+}
+
+func (t *AverageMessagePerBlock) AddBlock(block Block) {
+	num :=  block.TransactionsCount()
+	*t = append(*t, num)
 }
 
 func NewAverageValuesCounter() *AverageValuesAppender {

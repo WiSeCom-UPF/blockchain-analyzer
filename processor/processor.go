@@ -608,6 +608,11 @@ func GroupByIndex(blockchain core.Blockchain, globPattern string, start, end uin
 	for block := range blocks {
 		result.AddBlock(block)
 	}
+	for k, v := range result.GroupedIndexes {
+		if v < 50 { // Removing INDEXES that only appear a small number of times
+			delete(result.GroupedIndexes, k)
+		}
+	}
 	return result, nil
 }
 
@@ -620,6 +625,13 @@ func GroupByIndexOverTime(blockchain core.Blockchain, globPattern string,
 	result := core.NewTimeGroupedByIndexCount(duration)
 	for block := range blocks {
 		result.AddBlock(block)
+	}
+	for k, v := range result.TimeIndexesCounts {
+		for k2, v2 := range v {
+			if v2 < 50 { // Removing INDEXES that only appear a small number of times
+				delete(result.TimeIndexesCounts[k], k2)
+			}
+		}
 	}
 	return result, nil
 }
@@ -711,6 +723,54 @@ func computeMedian(arr []int) (float64, int, int) {
 		// Length is even, return the average of the two middle elements
 		return float64(arr[n/2-1]+arr[n/2]) / 2.0, arr[0], arr[len(arr)-1]
 	}
+}
+
+func AvegareMessagesPerBlock(blockchain core.Blockchain, globPattern string, start, end uint64) (float64, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	msgsCounter := core.NewAverageMessagePerBlock()
+	for block := range blocks {
+		msgsCounter.AddBlock(block)
+	}
+
+	sum := int64(0)
+	for _, m := range *msgsCounter {
+		sum += int64(m)
+	}
+	avgMsgs := float64(sum) / float64(len(*msgsCounter))
+
+	return avgMsgs, nil
+}
+
+func AvegareMessagesPerBlockOverTime(blockchain core.Blockchain, globPattern string, 
+	start, end uint64, duration time.Duration) (*core.TimeAverageMessagesPerBlockCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	msgValues := core.NewTimeAverageMessagesPerBlockCount(duration)
+	for block := range blocks {
+		msgValues.AddBlock(block)
+	}
+
+	retObj := &core.TimeAverageMessagesPerBlockCount{
+		GroupedBy: duration,
+		FinalAverages: make(map[time.Time]int64),
+	}
+
+	for k, v := range msgValues.AverageValues {
+
+		sum := int64(0)
+		for _, m := range v {
+			sum += m
+		}
+		avgVals := float64(sum) / float64(len(v))
+		retObj.FinalAverages[k] = int64(avgVals)
+	}
+
+	return retObj, nil
 }
 
 func AvegareTimeMilestones(blockchain core.Blockchain, globPattern string, start, end uint64) (float64, error) {

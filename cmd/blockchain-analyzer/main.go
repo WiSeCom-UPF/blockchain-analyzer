@@ -549,6 +549,39 @@ var iotaCommands []*cli.Command = []*cli.Command{
 		}),
 	},
 	{
+		Name:  "average-number-messages-per-block",
+		Flags: addPatternFlag(addRangeFlags(nil, false)),
+		Usage: "Compute the average number of messages (i.e. the number of messages referenced by each milestone) per block in the data",
+		Action: makeAction(func(c *cli.Context) error {
+			count, err := processor.AvegareMessagesPerBlock(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"))
+			if err != nil {
+				return err
+			}
+			fmt.Printf("The average number of messages per block is %d \n", count)
+			return nil
+		}),
+	},
+	{
+		Name:  "average-number-messages-per-block-over-time",
+		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
+		Usage: "iota specific: Compute the average number of messages (i.e. the number of messages referenced by each milestone) per block in the data over time",
+		Action: makeAction(func(c *cli.Context) error {
+			duration, err := time.ParseDuration(c.String("duration"))
+			if err != nil {
+				return err
+			}
+			counts, err := processor.AvegareMessagesPerBlockOverTime(
+				iota.New(), c.String("pattern"),
+				c.Uint64("start"), c.Uint64("end"), duration)
+			if err != nil {
+				return err
+			}
+			return core.Persist(counts, c.String("output"))
+		}),
+	},
+	{
 		Name:  "count-messages-over-time",
 		Flags: addGroupDurationFlag(addPatternFlag(addOutputFlag(addRangeFlags(nil, false)))),
 		Usage: "Count number of messages over time in the data",
