@@ -4,29 +4,61 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"sync"
 	"time"
+	"strconv"
 
 	"github.com/danhper/blockchain-analyzer/core"
 	"github.com/danhper/blockchain-analyzer/fetcher"
+	"github.com/iotaledger/inx-api-core-v1/pkg/hornet"
+	"github.com/iotaledger/inx-api-core-v1/pkg/milestone"
+	"github.com/iotaledger/hive.go/serializer"
 
 	iotago "github.com/iotaledger/iota.go/v2"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/linxGnu/grocksdb"
+	//"github.com/iotaledger/hive.go/serializer/v2/marshalutil"
 )
 
-var json = jsoniter.ConfigCompatibleWithStandardLibrary
+// SafeSet struct allows for safe concurrent access to a map m, avoiding race conditions.
+type SafeSet struct {
+    m map[string]bool
+    mu sync.Mutex
+}
 
-const defaultNodeEndpoint string = "https://chrysalis-nodes.iota.cafe:443" //"http://localhost:80"// "https://chrysalis-nodes.iota.cafe:443"//"https://chrysalis-nodes.iota.cafe:443" //"https://iota-node.tanglebay.com" //
+func NewSafeSet() *SafeSet {
+    return &SafeSet{m: make(map[string]bool)}
+}
+
+func (s *SafeSet) Add(item string) {
+    s.mu.Lock()
+    s.m[item] = true
+    s.mu.Unlock()
+}
+
+func (s *SafeSet) Contains(item string) bool {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    _, ok := s.m[item]
+    return ok
+}
+
+var globalSet *SafeSet
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
+const defaultNodeEndpoint string = "https://chrysalis-nodes.iota.cafe:443"
+const defaultDatabasePath string = "/mnt/HC_Volume_32053780/hornet-2021-05_19979_283822/db/tangle"
+const defaultUseDB bool = true
 
 type Iota struct {
-	NodeEndpoint string
+	UseDB 			bool
+	RocksDB 		*grocksdb.DB
+	NodeEndpoint 	string
+	DatabasePath 	string
 }
 
 func New() *Iota {
@@ -35,29 +67,74 @@ func New() *Iota {
 		nodeEndpoint = defaultNodeEndpoint
 	}
 
-	return &Iota{
+	dbPath := os.Getenv("Iota_ROCKSDB_PATH")
+	if dbPath == "" {
+		dbPath = defaultDatabasePath
+	}
+
+	useDB := os.Getenv("Iota_USE_DATABASE")
+	valueUseDB, err := strconv.ParseBool(useDB)
+	if err != nil {
+		valueUseDB = defaultUseDB
+	}
+
+	iotaObj := &Iota{
 		NodeEndpoint: nodeEndpoint,
+		DatabasePath: dbPath,
+		UseDB: valueUseDB,
+	}
+
+	if valueUseDB { // Create instance of RocksDB
+		bbto := grocksdb.NewDefaultBlockBasedTableOptions()
+		bbto.SetBlockCache(grocksdb.NewLRUCache(3 << 30))
+
+		opts := grocksdb.NewDefaultOptions()
+		opts.SetBlockBasedTableFactory(bbto)
+		opts.SetCreateIfMissing(true)
+
+		rocksDB, err := grocksdb.OpenDb(opts, dbPath)
+		if err != nil {
+			fmt.Println("error opnening rocksdb: ", err)
+			return nil
+		}
+		if rocksDB == nil {
+			fmt.Println("Error opening rocksdb: it is nil")
+			return nil
+		}
+		iotaObj.RocksDB = rocksDB
+		//defer iotaObj.RocksDB.Close()
+	}
+	return iotaObj
+}
+
+type Milestone struct {
+	Index     milestone.Index
+	MessageID hornet.MessageID
+	Timestamp time.Time
+}
+
+// Computes the RocksDB key for a milestone index
+func databaseKeyForMilestoneIndex(milestoneIndex uint32) []byte {
+	bytes := make([]byte, 4)
+	binary.LittleEndian.PutUint32(bytes, milestoneIndex)
+	return bytes
+}
+
+// Computes a milestone index from the RocksDB key
+func milestoneIndexFromDatabaseKey(key []byte) milestone.Index {
+	return milestone.Index(binary.LittleEndian.Uint32(key))
+}
+
+// Creates a milestone from the bytes obtained from the database
+func milestoneFactory(key []byte, data []byte) *Milestone {
+	return &Milestone{
+		Index:     milestoneIndexFromDatabaseKey(key),
+		MessageID: hornet.MessageIDFromSlice(data[:iotago.MessageIDLength]),
+		Timestamp: time.Unix(int64(binary.LittleEndian.Uint64(data[iotago.MessageIDLength:iotago.MessageIDLength+serializer.UInt64ByteSize])), 0),
 	}
 }
 
 func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
-
-	path, err := os.Getwd()
-	if err != nil {
-		log.Panic(err)
-	}
-
-	LOG_FILE := path + "/tmp/logs/iota_fetcher_logs.log"
-	// open log file
-    logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-    if err != nil {
-		fmt.Println("Error opnening log file")
-        log.Panic(err)
-    }
-    defer logFile.Close()
-    log.SetOutput(logFile)
-    // optional: log date-time, filename, and line number
-    log.SetFlags(log.Lshortfile | log.LstdFlags)
 
 	resp := &http.Response{
 		StatusCode: 200,
@@ -67,137 +144,128 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 		Header:     make(http.Header, 0),
 	}
 
-	// create a new node API client
+	globalSet = NewSafeSet()
+	ctx := context.Background()
+	milestoneIndex := uint32(blockNumber)
+	block := &Block{}
+	var pruningIndex uint64
+	var milestoneTimestamp int64
+	var milestoneParentsLength int
+	var messageIDmilestone iotago.MessageID
+	// create a new node API client 
 	nodeHTTPAPIClient := iotago.NewNodeHTTPAPIClient(i.NodeEndpoint)
 	if nodeHTTPAPIClient == nil {
 		resp.StatusCode = 500
 		return resp, fmt.Errorf("Node HTTP Client is nil")
 	}
 
-	ctx := context.Background()
+	if i.UseDB { // Fetching from a locally stored RocksDB
 
-	// fetch the node's info to know the pruning index
-	info, err := nodeHTTPAPIClient.Info(ctx)
-	if err != nil {
-		log.Println("Error getting info from node: ", err)
-		fmt.Println("Error getting info from node: ", err)
-		resp.StatusCode = 500
-		return resp, err
-	}
-	block := &Block{}
-	pruningIndex := info.PruningIndex
-	milestoneIndex := uint32(blockNumber) // The blockNumber passed must be a Milestone index, the messages confirmed by it will be stored
-
-	if blockNumber < uint64(pruningIndex) { // If the message we are trying to fetch has already been pruned, we query from the IOTA explorer
-		//err = fmt.Errorf("ERROR, cannot fetch block with milestone index: %v, pruning index is: %v, block number has to be bigger than pruning index ", blockNumber, pruningIndex)
-		//resp.StatusCode = 500
-		//return resp, err
-
-		milestoneURL := fmt.Sprint("https://explorer-api.iota.org/milestone/mainnet/", milestoneIndex)
-		milestoneResponseUrl, _, _, err := getDataExplorer(milestoneURL, true, false, false)
+		kyD := databaseKeyForMilestoneIndex(uint32(milestoneIndex))
+		valueMil, err := i.RocksDB.Get(grocksdb.NewDefaultReadOptions(), ConcatBytes([]byte{3}, kyD))
 		if err != nil {
-			fmt.Println("Error getting milestone from explorer: ", err)
-			log.Println("Error getting milestone from explorer: ", err)
+			resp.StatusCode = 500
+			return resp, fmt.Errorf("Error getting milestone Index from database: ", err)
+		}
+		defer valueMil.Free()
+		if valueMil.Data() == nil {
+			resp.StatusCode = 500
+			return resp, fmt.Errorf("Key not found in databse for milestone index %s", milestoneIndex)
+		}
+	
+		valObjMIL := valueMil.Data()
+		storedMilestone := milestoneFactory(kyD, valObjMIL)
+
+		var byteArray [32]byte
+		copy(byteArray[:], storedMilestone.MessageID)
+
+		messageStoredMilestone, err := getMessage(byteArray, i.RocksDB)
+		if err != nil {
+			resp.StatusCode = 500
+			return resp, fmt.Errorf("Error getting the milestone message from its ID:  %s", err)
+		}
+		if messageStoredMilestone == nil {
+			resp.StatusCode = 500
+			return resp, fmt.Errorf("Error getting the milestone message from its ID, it is nil")
+		}
+
+		messageIDmilestone = byteArray
+		milestoneTimestamp = storedMilestone.Timestamp.Unix()
+		milestoneParentsLength = len(messageStoredMilestone.Parents)
+
+	} else { // Fetching via a node
+		
+		// fetch the node's info to know the pruning index
+		info, err := nodeHTTPAPIClient.Info(ctx)
+		if err != nil {
+			fmt.Println("Error getting info from node: ", err)
 			resp.StatusCode = 500
 			return resp, err
 		}
-		if milestoneResponseUrl.MessageID == "" {
-			fmt.Println("Error getting milestone from explorer, milestone reponse message id is empty for url: ", milestoneURL)
-			log.Println("Error getting milestone from explorer, milestone reponse message id is empty for url: ", milestoneURL)
+		
+		pruningIndex = uint64(info.PruningIndex)
+
+		if blockNumber < pruningIndex {
 			resp.StatusCode = 500
-			return resp, fmt.Errorf("Error getting milestone from explorer, milestone reponse message id is empty")
-		}
-
-		messageMilestoneURL := fmt.Sprint("https://explorer-api.iota.org/search/mainnet/", milestoneResponseUrl.MessageID)
-		_, msgResponseUrl, _, err := getDataExplorer(messageMilestoneURL, false, true, false)
-		if err != nil {
-			fmt.Println("Error getting message from explorer: ", err)
-			log.Println("Error getting message from explorer: ", err)
-			resp.StatusCode = 500
-			return resp, err
-		}
-		if msgResponseUrl.Parents == nil {
-			fmt.Println("Error getting message's parents from explorer, parents are nil, url: ", messageMilestoneURL)
-			log.Println("Error getting message's parents from explorer, parents are nil, url: ", messageMilestoneURL)
-			resp.StatusCode = 500
-			return resp, fmt.Errorf("Error getting message's parents from explorer, parents are nil, url: %s", messageMilestoneURL)
-		}
-
-		block.BlockNumber = uint64(milestoneIndex)
-		block.MilestoneID = milestoneResponseUrl.MessageID
-		block.MilestoneIndex = milestoneIndex
-		block.MilestomeTimestamp = milestoneResponseUrl.Time
-
-		ch := make(chan error, len(msgResponseUrl.Parents))
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-
-		go getMessagesFromExplorerParallel(true, block, milestoneResponseUrl.MessageID, "https://explorer-api.iota.org/", ch, &wg)
-
-		wg.Wait()
-		close(ch)
-
-		for err := range ch {
-			if err != nil {
-		resp.StatusCode = 500
-				fmt.Println("Error getting the block: ", err)
-				log.Println("Error getting the block: ", err)
-		return resp, err
-			}
-		}
-
-	} else {
-
-		milestoneResponse, err := nodeHTTPAPIClient.MilestoneByIndex(ctx, milestoneIndex)
-		if err != nil {
-			resp.StatusCode = 500
-			fmt.Println("Error getting milestone: ", err)
-			log.Println("Error getting milestone: ", err)
-			return resp, err
-		}
-
-		messageIDmilestone, err := iotago.MessageIDFromHexString(milestoneResponse.MessageID)
-		if err != nil {
-			resp.StatusCode = 500
-			fmt.Println("Error getting messageID from hex string", err)
-			log.Println("Error getting messageID from hex string", err)
-			return resp, err
-		}
-
-		miletsoneMessage, err := nodeHTTPAPIClient.MessageByMessageID(ctx, messageIDmilestone)
-		if err != nil {
-			resp.StatusCode = 500
-			fmt.Println("Error getting milestone messgae from message id", err)
-			log.Println("Error getting milestone messgae from message id", err)
-			return resp, err
-		}
-
-		block.BlockNumber = uint64(milestoneIndex)
-		block.MilestoneID = hex.EncodeToString(messageIDmilestone[:])
-		block.MilestoneIndex = milestoneIndex
-		block.MilestomeTimestamp = milestoneResponse.Time
-
-		ch := make(chan error, len(miletsoneMessage.Parents))
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-
-		go getMessagesFromMilestoneParallel(true, block, messageIDmilestone, nodeHTTPAPIClient, ctx, ch, &wg)
-
-		wg.Wait()
-		close(ch)
-
-		for err := range ch {
+			return resp, fmt.Errorf("ERROR, cannot fetch block with milestone index: %v, pruning index is: %v, block number has to be bigger than pruning index ", blockNumber, pruningIndex)
+		} else { 
+			milestoneResponse, err := nodeHTTPAPIClient.MilestoneByIndex(ctx, milestoneIndex)
 			if err != nil {
 				resp.StatusCode = 500
-				fmt.Println("Error getting the block: ", err)
-				log.Println("Error getting the block: ", err)
-				return resp, err
+				return resp, fmt.Errorf("Error getting milestone: ", err)
 			}
+
+			messageIDmilestone, err = iotago.MessageIDFromHexString(milestoneResponse.MessageID)
+			if err != nil {
+				resp.StatusCode = 500
+				return resp, fmt.Errorf("Error getting messageID from hex string", err)
+			}
+
+			milestoneMessage, err := nodeHTTPAPIClient.MessageByMessageID(ctx, messageIDmilestone)
+			if err != nil {
+				resp.StatusCode = 500
+				return resp, fmt.Errorf("Error getting milestone messgae from message id", err)
+			}
+
+			milestoneTimestamp = milestoneResponse.Time
+			milestoneParentsLength = len(milestoneMessage.Parents)
 		}
 	}
 
+	block.BlockNumber = uint64(milestoneIndex)
+	block.MilestoneID = hex.EncodeToString(messageIDmilestone[:])
+	block.MilestoneIndex = milestoneIndex
+	block.MilestomeTimestamp = milestoneTimestamp
+
+	ch := make(chan error, milestoneParentsLength)
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+
+	if i.UseDB {
+		
+		if i.RocksDB == nil {
+			resp.StatusCode = 500
+			return resp, fmt.Errorf("Cannot fetch from RocksBD, IOTA RocksDB instance variable is nil")
+		}
+		go getMessagesFromMilestoneParallelDB(true, block, messageIDmilestone, i.RocksDB, ch, &wg)
+
+	} else {
+		go getMessagesFromMilestoneParallel(true, block, messageIDmilestone, nodeHTTPAPIClient, ctx, ch, &wg)
+	}
+
+	wg.Wait()
+	close(ch)
+
+	for err := range ch {
+		if err != nil {
+			resp.StatusCode = 500
+			return resp, err
+		}
+	}
+	
 	fmt.Println("Done fetching all messages for block with milestone index: ", milestoneIndex)
-	log.Println("Done fetching all messages for block with milestone index: ", milestoneIndex)
+	// Removing possible duplicated messages in a block
+	removeDuplicates(block)
 
 	block.MessagesCount = int(len(block.Messages))
 	if block.MessagesCount > 0 {
@@ -210,14 +278,11 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 	if err != nil {
 		resp.StatusCode = 500
 		fmt.Println("Error marhsaling block: ", err)
-		log.Println("Error marhsaling block: ", err)
-		return resp, err
+		return resp, fmt.Errorf("Error marhsaling block: ", err)
 	}
 	if content == nil {
 		resp.StatusCode = 500
-		err := fmt.Errorf("Content of marshalled block is nil")
-		log.Println(err.Error())
-		return resp, err
+		return resp, fmt.Errorf("Content of marshalled block is nil")
 	}
 
 	resp.Body = ioutil.NopCloser(bytes.NewReader(content))
@@ -225,160 +290,15 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 	return resp, nil
 }
 
-type Type struct {
-	Type *int `json:"type"`
-	//X map[string]interface{} `json:"-"`
-}
 
-func getType(msg *iotago.Message) (int, error) {
-	if msg.Payload == nil {
-		return -1, nil
-	}
-	jsonMsg, err := msg.Payload.MarshalJSON()
+
+func getMessagesFromMilestoneParallelDB(isStart bool, block *Block, msgID iotago.MessageID, db *grocksdb.DB,  ch chan error, wg *sync.WaitGroup) {
+
+	globalSet.Add(hex.EncodeToString(msgID[:]))
+
+	message, err := getMessage(msgID, db)
 	if err != nil {
-		return -10, fmt.Errorf("Error marshaling payload of message to get type: %s", err)
-	}
-
-	t := Type{}
-	if err := json.Unmarshal(jsonMsg, &t); err != nil {
-		return -10, fmt.Errorf("Error unmarsahling json message to get type: %s", err)
-	}
-
-	if t.Type == nil {
-		return -10, fmt.Errorf("Type was not set in payload")
-	}
-	return *t.Type, nil
-}
-
-type MilestoneResponseExplorer struct {
-	Milestone iotago.MilestoneResponse `json:"milestone"`
-}
-type MessageResponseExplorer struct {
-	Message iotago.Message `json:"message"`
-}
-type MetadataResponseExplorer struct {
-	Metadata iotago.MessageMetadataResponse `json:"metadata"`
-	Children []string                       `json:"childrenMessageIds"`
-}
-
-func getDataExplorer(url string, isMilestone bool, isMsg bool, isMetadata bool) (*iotago.MilestoneResponse, *iotago.Message, *iotago.MessageMetadataResponse, error) {
-
-	//fmt.Println("Getting data from explorer with GET req: " + url)
-
-	req, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		err := fmt.Errorf("ERROR creating http request: " + err.Error())
-		return nil, nil, nil, err
-	}
-	req.Close = true
-
-	t := &http.Transport{
-		MaxIdleConns:       20,
-        MaxIdleConnsPerHost:  20,
-		MaxConnsPerHost: 50,
-		Dial: (&net.Dialer{
-			Timeout:   60 * time.Second,
-			KeepAlive: 30 * time.Second,
-		}).Dial,
-		// We use ABSURDLY large keys, and should probably not.
-		TLSHandshakeTimeout: 60 * time.Second,
-	}
-	client := &http.Client{
-		Transport: t,
-	}
-	
-
-	req.Header.Add("accept", "*/*")
-	//req.Header.Add("accept-encoding", "gzip, deflate, br")
-	req.Header.Add("content-type", "application/json")
-	req.Header.Add("origin", " https://explorer.iota.org")
-	req.Header.Add("referer", "https://explorer.iota.org/")
-	req.Host = "explorer-api.iota.org"
-	req.Header.Add("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.1 Safari/605.1.15")
-
-	//resp, err := http.DefaultClient.Do(req)
-	resp, err := client.Do(req)
-
-	if err != nil {
-		err := fmt.Errorf("ERROR executing http request to the explorer, for url: %s, error: %s ", url, err.Error())
-		return nil, nil, nil, err
-	}
-	if resp.Status != "200 OK" {
-		err := fmt.Errorf("ERROR executing http request to the explorer, got status: %d, for url: %s", resp.StatusCode, url)
-		respD, _:= httputil.DumpRequest(req, true)
-		fmt.Println("Status: " +  resp.Status + ", request:" +  string(respD)) 
-		log.Println("Status: " +  resp.Status + ", request:" +  string(respD))
-		return nil, nil, nil, err
-	}
-	
-	defer resp.Body.Close()
-	
-	//respDump, err := httputil.DumpResponse(resp, true)
-	// if err != nil {
-	// 	err := fmt.Errorf("ERROR dumping http response to the explorer: " + err.Error())
-	// 	return nil, nil, nil, err
-	// }
-
-	// fmt.Printf("RESPONSE:\n%s", string(respDump))
-	// fmt.Println(" ------------------ ")
-	// fmt.Println(" ------------------ ")
-	//fmt.Println("Got message: " + url)
-
-	// var jsonRes map[string]interface{}
-
-	// resBody, err := ioutil.ReadAll(resp.Body)
-	// if err != nil {
-	// 	err := fmt.Errorf("ERROR reading http response to the explorer: " + err.Error())
-	// 	return nil, nil, err
-	// }
-	// err = json.Unmarshal(resBody, &jsonRes)
-	// if err != nil {
-	// 	err := fmt.Errorf("ERROR unmarshaling http response to the explorer: " + err.Error())
-	// 	return nil, nil, err
-	// }
-
-	// fmt.Println("JSON RES : ", jsonRes)
-
-	if isMilestone {
-		var milestoneRespExplorer MilestoneResponseExplorer
-		err = json.NewDecoder(resp.Body).Decode(&milestoneRespExplorer)
-		if err != nil {
-			err := fmt.Errorf("ERROR decoding JSON milestone http response for url: %s, error: %s", url, err.Error())
-			return nil, nil, nil, err
-		}
-		return &milestoneRespExplorer.Milestone, nil, nil, nil
-	}
-	if isMsg {
-		var messageRespExplorer MessageResponseExplorer
-		err = json.NewDecoder(resp.Body).Decode(&messageRespExplorer)
-		if err != nil {
-			err := fmt.Errorf("ERROR decoding JSON message http response for url: %s, error: %s", url, err.Error())
-			return nil, nil, nil, err
-		}
-		return nil, &messageRespExplorer.Message, nil, nil
-	}
-	if isMetadata {
-		var metadataRespExplorer MetadataResponseExplorer
-		err = json.NewDecoder(resp.Body).Decode(&metadataRespExplorer)
-		if err != nil {
-			err := fmt.Errorf("ERROR decoding JSON metadata http response for query url: %s, error: %s", url, err.Error())
-			return nil, nil, nil, err
-		}
-		return nil, nil, &metadataRespExplorer.Metadata, nil
-	}
-
-	return nil, nil, nil, fmt.Errorf("Error getting data from explorer, is not metadata, message or milestone")
-
-}
-
-func getMessagesFromExplorerParallel(isStart bool, block *Block, msgID string, explorerURL string, ch chan error, wg *sync.WaitGroup) {
-
-	messageURL := fmt.Sprint(explorerURL, "search/mainnet/")
-	messageURL = fmt.Sprint(messageURL, msgID)
-	_, message, _, err := getDataExplorer(messageURL, false, true, false)
-	if err != nil {
-		fmt.Println("Error getting the message data: ", err)
-		ch <- err
+		ch <- fmt.Errorf("Error getting the message from its ID: %s", err.Error())
 		wg.Done()
 		return
 	}
@@ -387,8 +307,9 @@ func getMessagesFromExplorerParallel(isStart bool, block *Block, msgID string, e
 		wg.Done()
 		return
 	}
+
 	if isStart == false {
-		ty, err := getType(message) // For the moment, if a message payload is nil I won't process it or store it
+		ty, err := getType(message) 
 		if err == nil && ty == 1 {  // Type = 1 is a milestone
 			//fmt.Println("Found a new milestone! Stopping here...")
 			ch <- nil
@@ -401,36 +322,33 @@ func getMessagesFromExplorerParallel(isStart bool, block *Block, msgID string, e
 			return
 		}
 
-		messageMetadataURL := fmt.Sprint(explorerURL, "message/mainnet/")
-		messageMetadataURL = fmt.Sprint(messageMetadataURL, msgID)
-		_, _, msgMetadata, err := getDataExplorer(messageMetadataURL, false, false, true)
+		msgMetadata, err := getMessageMetadata(msgID, db)
 		if err != nil {
-			fmt.Println("Error getting the message metadata: ", err)
-			ch <- err
+			ch <- fmt.Errorf("Error getting the message metadata: %s", err.Error())
 			wg.Done()
 			return
 		}
-		if msgMetadata == nil {
-			fmt.Println("Error getting the message metadata, it is nil, url: ", messageMetadataURL)
-			ch <- fmt.Errorf("Error getting the message metadata, it is nil, url: %s ", messageMetadataURL)
-			wg.Done()
-			return
-		}
-
 		referencedMilestoneIndex := msgMetadata.ReferencedByMilestoneIndex
+
 		if referencedMilestoneIndex == nil {
 			ch <- fmt.Errorf("Referenced milestone index of message is nil")
 			wg.Done()
 			return
 		}
-		//fmt.Println("Referenced milestone index: ", *referencedMilestoneIndex)
-		//fmt.Println("Block milestone index: ", block.MilestoneIndex)
 		if *referencedMilestoneIndex != block.MilestoneIndex {
 			ch <- nil
 			wg.Done()
 			return
 		}
-		msgData := MessageData{MessageID: msgID, Message: *message}
+
+		msgData := MessageData{
+			MessageID: hex.EncodeToString(msgID[:]), 
+			Message: *message,
+			IsSolid: msgMetadata.Solid,
+			LedgerInclusionState: msgMetadata.LedgerInclusionState,
+			ConflictReason: msgMetadata.ConflictReason,
+		}
+		
 		block.Messages = append(block.Messages, msgData) // The message corresponding to the initial milestone won't be stored, just it's id and index and part of the block
 	}
 
@@ -438,9 +356,14 @@ func getMessagesFromExplorerParallel(isStart bool, block *Block, msgID string, e
 	wg2 := sync.WaitGroup{}
 
 	for _, parentMessageID := range message.Parents { // Recursively look in parallel into the parents of the message
+
+		if globalSet.Contains(hex.EncodeToString(parentMessageID[:])) { // Means this parent has already been viisted
+			ch2 <- nil
+			continue
+		}
 		wg2.Add(1)
-		//fmt.Println("Looking into parent: ", parentMessageID)
-		go getMessagesFromExplorerParallel(false, block, hex.EncodeToString(parentMessageID[:]), explorerURL, ch2, &wg2)
+
+		go getMessagesFromMilestoneParallelDB(false, block, parentMessageID, db, ch2, &wg2)
 	}
 
 	wg2.Wait()
@@ -448,13 +371,11 @@ func getMessagesFromExplorerParallel(isStart bool, block *Block, msgID string, e
 
 	for err := range ch2 {
 		if err != nil {
-			fmt.Println("received err from channel child: " +  err.Error())
-			log.Println("received err from channel child: " +  err.Error())
-			wg.Done()
-			return
-			//ch <- err // TODO: test if this cause recursion to not stop when errors happen
+			fmt.Println("Received err from channel child: " +  err.Error())
+			//ch <- err
 		}
 	}
+
 	wg.Done()
 	return
 }
@@ -474,7 +395,7 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 	}
 
 	if isStart == false {
-		ty, err := getType(message) // For the moment, if a message payload is nil I won't process it or store it
+		ty, err := getType(message) 
 		if err == nil && ty == 1 {  // Type = 1 is a milestone
 			//fmt.Println("Found a new milestone! Stopping here...")
 			ch <- nil
@@ -497,12 +418,10 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 		referencedMilestoneIndex := msgMetadata.ReferencedByMilestoneIndex
 		if referencedMilestoneIndex == nil {
 			ch <- fmt.Errorf("Referenced milestone index of message is nil")
-			//ch <- nil // TODO: what to do here?? Get this from the explorer? Add autopeering with tanglebay?
 			wg.Done()
 			return
 		}
-		//fmt.Println("Referenced milestone index: ", *referencedMilestoneIndex)
-		//fmt.Println("Block milestone index: ", block.MilestoneIndex)
+
 		if *referencedMilestoneIndex != block.MilestoneIndex {
 			ch <- nil
 			wg.Done()
@@ -527,7 +446,6 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 	for _, parentMessageID := range message.Parents { // Recursively look in parallel into the parents of the message
 		wg2.Add(1)
-		//fmt.Println("Looking into parent: ", parentMessageID)
 		go getMessagesFromMilestoneParallel(false, block, parentMessageID, client, ctx, ch2, &wg2)
 	}
 
@@ -537,8 +455,6 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 	for err := range ch2 {
 		if err != nil {
 			fmt.Println("received err from channel child: " +  err.Error())
-			log.Println("received err from challe child: " + err.Error())
-			//ch <- err // TODO: test if this cause recursion to not stop when errors happen
 		}
 	}
 
@@ -556,32 +472,32 @@ func (i *Iota) FetchData(filepath string, start, end uint64) error {
 }
 
 type Block struct {
-	BlockNumber        uint64        `json:"block_number"` // For now, block number corresponds to a milestone index, so it will be the same as the filed MilestoneIndex
-	MilestoneID        string        `json:"milestone_id"`
-	MilestoneIndex     uint32        `json:"milestone_index"`
-	Messages           []MessageData `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
-	MilestomeTimestamp int64         `json:"milestone_timestamp"` 
-	BlockTimestamp     time.Time     `json:"block_timestamp"`     // TODO: should this be the milestone timestamp ?
-	MessagesCount      int           `json:"messages_count"`
-	IsEmptyBlock       bool          `json:"is_empty"`
-	actions            []core.Action
+	IsEmptyBlock       	bool          `json:"is_empty"`
+	MessagesCount      	int           `json:"messages_count"`
+	MilestoneIndex     	uint32        `json:"milestone_index"`
+	BlockNumber        	uint64        `json:"block_number"` // block number corresponds to a milestone index
+	MilestomeTimestamp 	int64         `json:"milestone_timestamp"` 
 	IndxPayldCnt		int64
 	SgnedTxnPayldCnt	int64
 	MilstnPayldCnt		int64
 	NoPaylodCnt			int64
+	MilestoneID        	string        `json:"milestone_id"`
+	Messages           	[]MessageData `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
+	BlockTimestamp     	time.Time     `json:"block_timestamp"`    
+	actions            	[]core.Action
 }
 
 type MessageData struct {
-	Message     iotago.Message `json:"message"`
-	MessageID   string         `json:"message_id"`
-	IsSolid 	bool			`json:"isSolid"`
+	IsSolid 		bool			`json:"isSolid"`
+	ShouldPromote 	*bool `json:"shouldPromote,omitempty"`
+	ShouldReattach 	*bool `json:"shouldReattach,omitempty"`
+	ConflictReason 	uint8 `json:"conflictReason,omitempty"`
+	MessageID   	string         `json:"message_id"`
 	LedgerInclusionState *string `json:"ledgerInclusionState"`
-	ConflictReason uint8 `json:"conflictReason,omitempty"`
-	ShouldPromote *bool `json:"shouldPromote,omitempty"`
-	ShouldReattach *bool `json:"shouldReattach,omitempty"`
 	NameMsg     string         // Adding these fields as required by the interface, but not used in IOTA
 	ReceiverMsg string
 	SenderMsg   string
+	Message     	iotago.Message `json:"message"`
 }
 
 func (i *Iota) ParseBlock(rawLine []byte) (core.Block, error) { // TODO: yet to implement
@@ -619,31 +535,10 @@ func (i *Iota) ParseBlock(rawLine []byte) (core.Block, error) { // TODO: yet to 
 				block.NoPaylodCnt += 1
 			default:
 				fmt.Printf("Found message with unsual payload type: %d, messageID: %s",  ty,  message.MessageID)
-				// TODO: store in a map in the block as well??
 			}
 
 		}
 	}
-
-
-
-	// parsedTime, err := h.ConvertDecimalTimestampToTime(block.Timestamp)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// block.BlockTimestamp = parsedTime
-	// // if len (block.Transactions) > 0 {
-	// // 	for i :=0; i < len (block.Transactions); i++ {
-	// // 		if block.Transactions[i].Type == "poc_receipts_v1" || block.Transactions[i].Type == "poc_receipts_v2" {
-	// // 			if len(block.Transactions[i].WitnessDataPath[0].WitnessList) == 0 {
-	// // 				fmt.Println(block.Transactions[i].WitnessDataPath[0].ChallengeeGeoInfo.Country)
-	// // 			}
-	// // 		}
-	// // 	}
-	// // }
-	// if len(block.Transactions) == 0 {
-	// 	block.IsEmptyBlock = true
-	// }
 
 	return &block, nil
 }
@@ -747,4 +642,49 @@ func (m MessageData) Receiver() string {
 
 func (m MessageData) Sender() string {
 	return m.SenderMsg
+}
+
+type blockKey struct {
+	MessageID string
+}
+
+func removeDuplicates(block *Block) {
+	key := blockKey{}
+	newArr := []MessageData{}
+	seen := make(map[blockKey]bool, len(block.Messages))
+	for i, p := range block.Messages {
+		key.MessageID = p.MessageID
+		if seen[key] {
+			//block.Messages = append(block.Messages[:i], block.Messages[i+1:]...)
+		} else {
+			seen[key] = true
+			newArr = append(newArr, block.Messages[i])
+		}
+	}
+	block.Messages = newArr
+}
+
+type Type struct {
+	Type *int `json:"type"`
+	//X map[string]interface{} `json:"-"`
+}
+
+func getType(msg *iotago.Message) (int, error) {
+	if msg.Payload == nil {
+		return -1, nil
+	}
+	jsonMsg, err := msg.Payload.MarshalJSON()
+	if err != nil {
+		return -10, fmt.Errorf("Error marshaling payload of message to get type: %s", err)
+	}
+
+	t := Type{}
+	if err := json.Unmarshal(jsonMsg, &t); err != nil {
+		return -10, fmt.Errorf("Error unmarsahling json message to get type: %s", err)
+	}
+
+	if t.Type == nil {
+		return -10, fmt.Errorf("Type was not set in payload")
+	}
+	return *t.Type, nil
 }
