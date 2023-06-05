@@ -134,28 +134,6 @@ func milestoneFactory(key []byte, data []byte) *Milestone {
 	}
 }
 
-type SafeSet struct {
-	mu sync.Mutex
-	m  map[string]bool
-}
-
-func NewSafeSet() *SafeSet {
-	return &SafeSet{m: make(map[string]bool)}
-}
-
-func (s *SafeSet) Add(item string) {
-	s.mu.Lock()
-	s.m[item] = true
-	s.mu.Unlock()
-}
-
-func (s *SafeSet) Contains(item string) bool {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	_, ok := s.m[item]
-	return ok
-}
-
 func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 
 	resp := &http.Response{
@@ -174,6 +152,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 	var milestoneTimestamp int64
 	var milestoneParentsLength int
 	var messageIDmilestone iotago.MessageID
+	var defID iotago.MessageID
 	// create a new node API client 
 	nodeHTTPAPIClient := iotago.NewNodeHTTPAPIClient(i.NodeEndpoint)
 	if nodeHTTPAPIClient == nil {
@@ -225,27 +204,23 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 			return resp, err
 		}
 
-		messageIDmilestone, err := iotago.MessageIDFromHexString(milestoneResponse.MessageID)
-		if err != nil {
+		pruningIndex = uint64(info.PruningIndex)
+		if blockNumber < uint64(pruningIndex) {
+			err = fmt.Errorf("ERROR, cannot fetch block with milestone index: %v, pruning index is: %v, block number has to be bigger than pruning index ", blockNumber, pruningIndex)
 			resp.StatusCode = 500
-			return resp, fmt.Errorf("ERROR, cannot fetch block with milestone index: %v, pruning index is: %v, block number has to be bigger than pruning index ", blockNumber, pruningIndex)
-		} else { 
+			return resp, err
+		} else {
+
 			milestoneResponse, err := nodeHTTPAPIClient.MilestoneByIndex(ctx, milestoneIndex)
 			if err != nil {
 				resp.StatusCode = 500
 				return resp, fmt.Errorf("Error getting milestone: ", err)
 			}
 
-			messageIDmilestone, err = iotago.MessageIDFromHexString(milestoneResponse.MessageID)
+			messageIDmilestone, err := iotago.MessageIDFromHexString(milestoneResponse.MessageID)
 			if err != nil {
 				resp.StatusCode = 500
-				return resp, fmt.Errorf("Error getting messageID from hex string", err)
-			}
-
-			messageIDmilestone, err = iotago.MessageIDFromHexString(milestoneResponse.MessageID)
-			if err != nil {
-				resp.StatusCode = 500
-				return resp, fmt.Errorf("Error getting messageID from hex string", err)
+				return resp, fmt.Errorf("Error getting milestone: ", err)
 			}
 
 			milestoneMessage, err := nodeHTTPAPIClient.MessageByMessageID(ctx, messageIDmilestone)
@@ -256,13 +231,14 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 
 			milestoneTimestamp = milestoneResponse.Time
 			milestoneParentsLength = len(milestoneMessage.Parents)
+			defID = messageIDmilestone
 		}
 	}
 
 	block.BlockNumber = uint64(milestoneIndex)
 	block.MilestoneID = hex.EncodeToString(messageIDmilestone[:])
 	block.MilestoneIndex = milestoneIndex
-	block.MilestomeTimestamp = milestoneTimestamp
+	block.MilestoneTimestamp = milestoneTimestamp
 
 	ch := make(chan error, milestoneParentsLength)
 	wg := sync.WaitGroup{}
@@ -277,7 +253,7 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 		go getMessagesFromMilestoneParallelDB(true, block, messageIDmilestone, i.RocksDB, ch, &wg)
 
 	} else {
-		go getMessagesFromMilestoneParallel(true, block, messageIDmilestone, nodeHTTPAPIClient, ctx, ch, &wg)
+		go getMessagesFromMilestoneParallel(true, block, defID, nodeHTTPAPIClient, ctx, ch, &wg)
 	}
 
 	wg.Wait()
@@ -292,8 +268,6 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 	
 	fmt.Println("Done fetching all messages for block with milestone index: ", milestoneIndex)
 	// Removing possible duplicated messages in a block
-	removeDuplicates(block)
-
 	removeDuplicates(block)
 
 	block.MessagesCount = int(len(block.Messages))
@@ -319,8 +293,6 @@ func (i *Iota) getBlock(blockNumber uint64) (*http.Response, error) {
 	return resp, nil
 }
 
-
-
 func getMessagesFromMilestoneParallelDB(isStart bool, block *Block, msgID iotago.MessageID, db *grocksdb.DB,  ch chan error, wg *sync.WaitGroup) {
 
 	globalSet.Add(hex.EncodeToString(msgID[:]))
@@ -330,9 +302,6 @@ func getMessagesFromMilestoneParallelDB(isStart bool, block *Block, msgID iotago
 		ch <- fmt.Errorf("Error getting the message from its ID: %s", err.Error())
 		wg.Done()
 		return
-	}
-	if trnx.Essence.Outputs == nil {
-		return nil, nil, nil, fmt.Errorf("Transaction essence outputs is nil")
 	}
 
 	if isStart == false {
@@ -384,16 +353,14 @@ func getMessagesFromMilestoneParallelDB(isStart bool, block *Block, msgID iotago
 
 	for _, parentMessageID := range message.Parents { // Recursively look in parallel into the parents of the message
 
-		if globalSet.Contains(hex.EncodeToString(parentMessageID[:])) { // Means this parent has already been viisted
+		if globalSet.Contains(hex.EncodeToString(parentMessageID[:])) { // Means this parent has already been visted
 			ch2 <- nil
 			continue
 		}
 		wg2.Add(1)
 
 		go getMessagesFromMilestoneParallelDB(false, block, parentMessageID, db, ch2, &wg2)
-	var indxStr *string = nil
-	if trnx.Essence.Payload != nil && trnx.Essence.Payload.Index != nil {
-		indxStr = trnx.Essence.Payload.Index
+
 	}
 
 	wg2.Wait()
@@ -408,8 +375,6 @@ func getMessagesFromMilestoneParallelDB(isStart bool, block *Block, msgID iotago
 
 	wg.Done()
 	return
-}
-	return &listOutputAddresses, &listValues, indxStr, nil
 }
 
 func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.MessageID, client *iotago.NodeHTTPAPIClient, ctx context.Context, ch chan error, wg *sync.WaitGroup) {
@@ -430,9 +395,6 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 
 	if isStart == false {
 		ty, err := getType(message) 
-		if err == nil && ty == 1 {  // Type = 1 is a milestone
-			//fmt.Println("Found a new milestone! Stopping here...")
-		ty, err := getType(message)
 		if err == nil && ty == 1 { // Type = 1 is a milestone
 			ch <- nil
 			wg.Done()
@@ -503,22 +465,6 @@ func getMessagesFromMilestoneParallel(isStart bool, block *Block, msgID iotago.M
 	return
 }
 
-func removeDuplicates(block *Block) {
-	key := blockKey{}
-	newArr := []MessageData{}
-	seen := make(map[blockKey]bool, len(block.Messages))
-	for i, p := range block.Messages {
-		key.MessageID = p.MessageID
-		if seen[key] {
-			//block.Messages = append(block.Messages[:i], block.Messages[i+1:]...)
-		} else {
-			seen[key] = true
-			newArr = append(newArr, block.Messages[i])
-		}
-	}
-	block.Messages = newArr
-}
-
 func (i *Iota) makeRequest(client *http.Client, blockNumber uint64) (*http.Response, error) {
 	return i.getBlock(blockNumber)
 }
@@ -533,41 +479,24 @@ type Block struct {
 	MessagesCount      	int           `json:"messages_count"`
 	MilestoneIndex     	uint32        `json:"milestone_index"`
 	BlockNumber        	uint64        `json:"block_number"` // block number corresponds to a milestone index
-	MilestomeTimestamp 	int64         `json:"milestone_timestamp"` 
+	MilestoneTimestamp 	int64         `json:"milestone_timestamp"` 
 	IndxPayldCnt		int64
 	SgnedTxnPayldCnt	int64
 	MilstnPayldCnt		int64
 	NoPaylodCnt			int64
-	MilestoneID        	string        `json:"milestone_id"`
-	Messages           	[]MessageData `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
-	BlockTimestamp     	time.Time     `json:"block_timestamp"`    
-	actions            	[]core.Action
-	IsEmptyBlock       	bool   `json:"is_empty"`
-	MilestoneIndex     	uint32 `json:"milestone_index"`
-	BlockNumber        	uint64 `json:"block_number"` // Block number corresponds to a milestone index
-	MilestoneTimestamp 	int64  `json:"milestone_timestamp"`
-	MessagesCount      	int    `json:"messages_count"`
-	IndxPayldCnt       	int64
-	SgnedTxnPayldCnt   	int64
-	MilstnPayldCnt     	int64
-	NoPaylodCnt        	int64
 	OtherPayloadCnt		int64
 	ConflictsCnt 		int64
 	NoSolidCnt			int64
 	AverageValuesSpent	float64
-	ValuesSpent 		[]int
 	MilestoneID        	string        `json:"milestone_id"`
-	BlockTimestamp     	time.Time     `json:"block_timestamp"` // This field is not used, the MilestoneTimestamp is the relevant one
-	Messages           	[]MessageData `json:"messages"` // The messages part of this block, which are confirmed by this block's milestone
-	actions            	[]core.Action	// Not used in IOTA
+	Messages           	[]MessageData `json:"messages"`            // The messages part of this block, which are confirmed by this block's milestone
+	BlockTimestamp     	time.Time     `json:"block_timestamp"`    
+	actions            	[]core.Action
+	ValuesSpent 		[]int
 	GroupedConflicts 	map[int]int
 	GroupedIndexes 		map[string]int
 	GroupedTransactionIndexes 		map[string]int
 	GroupedAddresses 	map[string]int
-}
-
-type blockKey struct {
-	MessageID string
 }
 
 type MessageData struct {
@@ -577,20 +506,10 @@ type MessageData struct {
 	ConflictReason 	uint8 `json:"conflictReason,omitempty"`
 	MessageID   	string         `json:"message_id"`
 	LedgerInclusionState *string `json:"ledgerInclusionState"`
-	NameMsg     string         // Adding these fields as required by the interface, but not used in IOTA
-	ReceiverMsg string
-	SenderMsg   string
 	Message     	iotago.Message `json:"message"`
-	ShouldPromote        *bool          `json:"shouldPromote,omitempty"`
-	ShouldReattach       *bool          `json:"shouldReattach,omitempty"`
-	LedgerInclusionState *string        `json:"ledgerInclusionState"`
-	IsSolid              bool           `json:"isSolid"`
-	ConflictReason       uint8          `json:"conflictReason,omitempty"`
-	MessageID            string         `json:"message_id"`
 	NameMsg              string         // Adding this field as required by the interface, but not used in IOTA
 	ReceiverMsg          string			// Adding this field as required by the interface, but not used in IOTA
 	SenderMsg            string			// Adding this field as required by the interface, but not used in IOTA
-	Message              iotago.Message `json:"message"`
 }
 
 func (i *Iota) ParseBlock(rawLine []byte) (core.Block, error) {
@@ -887,6 +806,44 @@ type Type struct {
 	//X map[string]interface{} `json:"-"`
 }
 
+type Index struct {
+	Index *string `json:"index"`
+}
+
+type TransactionInput struct {
+	Type 			*int 		`json:"type"`
+	TransactionID 	*string 	`json:"transactionId"`
+	TransactionOutputIndex *int	`json:"transactionOutputIndex"`
+}
+
+type TransactionAddress struct {
+	Type 			*int 		`json:"type"`
+	Address 		*string 	`json:"address"`
+}
+
+type TransactionOuput struct {
+	Type 			*int 				`json:"type"`
+	Address 		*TransactionAddress `json:"address"`
+	Amount 			*int 				`json:"amount"`
+}
+
+type TransactionPayload struct {
+	Type 			*int 				`json:"type"`
+	Index			*string				`json:"index"`
+	Data			*string				`json:"data"`
+}
+
+type TransactionEssence struct {
+	Type 			*int 				`json:"type"`
+	Inputs 			*[]TransactionInput `json:"inputs"`
+	Outputs 		*[]TransactionOuput `json:"outputs"`
+	Payload 		*TransactionPayload `json:"payload"`
+}
+
+type Transaction struct {
+	Essence *TransactionEssence `json:"essence"`
+}
+
 func getType(msg *iotago.Message) (int, error) {
 	if msg.Payload == nil {
 		return -1, nil
@@ -905,4 +862,73 @@ func getType(msg *iotago.Message) (int, error) {
 		return -10, fmt.Errorf("Type was not set in payload")
 	}
 	return *t.Type, nil
+}
+
+// Gets the index of a message with an indexation payload
+func getIndex(msg *iotago.Message) (string, error) {
+	if msg.Payload == nil {
+		return "", nil
+	}
+	jsonMsg, err := msg.Payload.MarshalJSON()
+	if err != nil {
+		return "", fmt.Errorf("Error marshaling payload of message to get index: %s", err)
+	}
+
+	indx := Index{}
+	if err := json.Unmarshal(jsonMsg, &indx); err != nil {
+		return "", fmt.Errorf("Error unmarsahling json message to get index: %s", err)
+	}
+
+	if indx.Index == nil {
+		return "", fmt.Errorf("Index was not set in payload")
+	}
+
+	bs, err := hex.DecodeString(*indx.Index)
+	if err != nil {
+		return "", fmt.Errorf("Error decoding hex string to string to get index from payload: %s", err)
+	}
+	return string(bs), nil
+}
+
+// Gets the output addresses, values and the index from a message containing a signed transaction payload
+func getInfoTransaction(msg *iotago.Message) (*[]string, *[]int, *string, error) {
+
+	if msg.Payload == nil {
+		return nil, nil, nil, fmt.Errorf("Error getting output addresses, payload is nil")
+	}
+	jsonMsg, err := msg.Payload.MarshalJSON()
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("Error marshaling payload of message to get addresses: %s", err)
+	}
+
+	trnx := Transaction{}
+	if err := json.Unmarshal(jsonMsg, &trnx); err != nil {
+		return nil, nil, nil, fmt.Errorf("Error unmarsahling json message to get outputs: %s", err)
+	}
+
+	if trnx.Essence == nil {
+		return nil, nil, nil, fmt.Errorf("Transaction essence is nil")
+	}
+	if trnx.Essence.Outputs == nil {
+		return nil, nil, nil, fmt.Errorf("Transaction essence outputs is nil")
+	}
+
+	listOutputAddresses := []string{}
+	listValues := []int{}
+
+	for _, out := range *trnx.Essence.Outputs {
+		if out.Address != nil && out.Address.Address != nil {
+			listOutputAddresses = append(listOutputAddresses, *out.Address.Address)
+			if out.Amount != nil {
+				listValues = append(listValues, *out.Amount)
+			}
+		}
+	}
+
+	var indxStr *string = nil
+	if trnx.Essence.Payload != nil && trnx.Essence.Payload.Index != nil {
+		indxStr = trnx.Essence.Payload.Index
+	}
+
+	return &listOutputAddresses, &listValues, indxStr, nil
 }

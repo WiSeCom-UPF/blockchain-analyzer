@@ -534,6 +534,14 @@ var eosCommands []*cli.Command = []*cli.Command{
 
 var iotaCommands []*cli.Command = []*cli.Command{
 	{
+		Name:  "fetch",
+		Flags: addFetchFlags(nil),
+		Usage: "Fetches IOTA data",
+		Action: makeAction(func(c *cli.Context) error {
+			return iota.New().FetchData(c.String("output"), c.Uint64("start"), c.Uint64("end"))
+		}),
+	},
+	{
 		Name:  "count-messages",
 		Flags: addPatternFlag(addRangeFlags(nil, false)),
 		Usage: "Count the number of messages in the data",
