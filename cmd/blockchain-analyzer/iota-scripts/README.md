@@ -1,0 +1,3 @@
+The scripts condense-files.go and fetch.go were used during the development of the thesis for greater automation in running the IOTA commands. They are provided here for utility and reference, as It may be helpful for anyone willing to use the framework. Note that you must run them inside their own go package main. They create folders, files and run commands so always be aware of the paths and change them to your personal ones.
+
+Thanks!
