@@ -41,7 +41,7 @@ func SortMapStringU64(p map[string]int) (PairList){
 }
 
 const (
-	BatchSize uint64 = 100000
+	BatchSize uint64 = 100 // Changed this
 )
 
 func MakeFilename(filePath string, first, last uint64) string {

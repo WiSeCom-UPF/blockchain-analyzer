@@ -8,12 +8,12 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/danhper/blockchain-analyzer/core"
-
 
 	"github.com/ugorji/go/codec"
 )
@@ -94,6 +94,7 @@ func YieldAllBlocks(
 	globPattern string,
 	blockchain core.Blockchain,
 	start, end uint64) (<-chan core.Block, error) {
+	fmt.Println("patter: ", globPattern)
 	files, err := filepath.Glob(globPattern)
 	if err != nil {
 		return nil, err
@@ -217,7 +218,7 @@ func CountTransactions(blockchain core.Blockchain, globPattern string, start, en
 func CountMaxTransactionsInBlock(blockchain core.Blockchain, globPattern string, start, end uint64) (int, int, error) {
 	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
 	if err != nil {
-		return 0,0, err
+		return 0, 0, err
 	}
 	txCounter := core.NewMaxTransactionBlockCounter()
 	max_counter := 0
@@ -462,3 +463,408 @@ func OneToOneCount(blockchain core.Blockchain, globPattern string,
 	return oneToOneCount, nil
 }
 
+func CountIndexationPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewIndexationPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountSignedTransactionPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewSignedTransactionPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountNoPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewNoPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountOtherPayload(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewOtherPayloadCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountNoSolid(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewNoSolidCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func GroupConflicting(blockchain core.Blockchain, globPattern string, start, end uint64) (*core.GroupedConflictsCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewGroupedConflictsCount()
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountConflicting(blockchain core.Blockchain, globPattern string, start, end uint64) (int, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	txCounter := core.NewConflictsCounter()
+	for block := range blocks {
+		txCounter.AddBlock(block)
+	}
+	return (int)(*txCounter), nil
+}
+
+func CountConflictingOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration) (*core.TimeGroupedConflictsCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedConflictsCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountIndexationPayloadOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration) (*core.TimeGroupedIndexationCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedIndexationCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountSgnTransactionPayloadOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration) (*core.TimeGroupedSignedTransactionCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedSignedTransactionCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func CountNoPayloadOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration) (*core.TimeGroupedNoPayloadCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedNoPayloadCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	return result, nil
+}
+
+func GroupByIndex(blockchain core.Blockchain, globPattern string, start, end uint64) (*core.GroupedByIndexCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewGroupedByIndexCount()
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	for k, v := range result.GroupedIndexes {
+		if v < 50 { // Removing INDEXES that only appear a small number of times
+			delete(result.GroupedIndexes, k)
+		}
+	}
+	return result, nil
+}
+
+func GroupByIndexOverTime(blockchain core.Blockchain, globPattern string,
+	start, end uint64, duration time.Duration) (*core.TimeGroupedByIndexCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewTimeGroupedByIndexCount(duration)
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	for k, v := range result.TimeIndexesCounts {
+		for k2, v2 := range v {
+			if v2 < 50 { // Removing INDEXES that only appear a small number of times
+				delete(result.TimeIndexesCounts[k], k2)
+			}
+		}
+	}
+	return result, nil
+}
+
+func GroupByAddress(blockchain core.Blockchain, globPattern string, start, end uint64) (*core.GroupedByAddressCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewGroupedByAddressCount()
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+	for k, v := range result.GroupedAddresses {
+		if v < 10 { // Removing addresses that only appear once as those are not of importance,
+			// TODO: Should I remove 2 too????
+			delete(result.GroupedAddresses, k)
+		}
+	}
+	return result, nil
+}
+
+func AvegareValueTransactions(blockchain core.Blockchain, globPattern string, start, end uint64) (float64, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	avgValues := core.NewAverageValuesCounter()
+	for block := range blocks {
+		avgValues.AddBlock(block)
+	}
+	sum := 0
+	for _, v := range *avgValues {
+		sum += v
+	}
+	avg := float64(sum) / float64(len(*avgValues))
+
+	median, min, max := computeMedian(*avgValues)
+
+	fmt.Printf("Median is: %f, max is: %d, min is: %d\n", median, max, min)
+	
+	return avg, nil
+}
+
+func AvegareValueTransactionsOverTime(blockchain core.Blockchain, globPattern string, 
+	start, end uint64, duration time.Duration) (*core.TimeAverageValuesCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+
+	avgValues := core.NewTimeAverageValuesCount(duration)
+	for block := range blocks {
+		avgValues.AddBlock(block)
+	}
+
+	retObj := &core.TimeAverageValuesCount{
+		GroupedBy: duration,
+		FinalAverages: make(map[time.Time]core.Stats),
+	}
+
+	for k, v := range avgValues.AverageValues {
+		sum := 0
+		for _, val := range v {
+			sum += val
+		}
+		avgF := float64(sum) / float64(len(v))
+		median, min, max := computeMedian(v)
+
+		retObj.FinalAverages[k] = core.Stats{
+			Average: avgF,
+			Median: median,
+			Max: max,
+			Min: min,
+		}
+	}
+
+	return retObj, nil
+}
+
+func computeMedian(arr []int) (float64, int, int) {
+	sort.Ints(arr) // Sort the array in ascending order
+
+	n := len(arr)
+	if n%2 == 1 {
+		// Length is odd, return the middle element
+		return float64(arr[n/2]), arr[0], arr[len(arr)-1]
+	} else {
+		// Length is even, return the average of the two middle elements
+		return float64(arr[n/2-1]+arr[n/2]) / 2.0, arr[0], arr[len(arr)-1]
+	}
+}
+
+func AvegareMessagesPerBlock(blockchain core.Blockchain, globPattern string, start, end uint64) (float64, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	msgsCounter := core.NewAverageMessagePerBlock()
+	for block := range blocks {
+		msgsCounter.AddBlock(block)
+	}
+
+	sum := int64(0)
+	for _, m := range *msgsCounter {
+		sum += int64(m)
+	}
+	avgMsgs := float64(sum) / float64(len(*msgsCounter))
+
+	return avgMsgs, nil
+}
+
+func AvegareMessagesPerBlockOverTime(blockchain core.Blockchain, globPattern string, 
+	start, end uint64, duration time.Duration) (*core.TimeAverageMessagesPerBlockCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	msgValues := core.NewTimeAverageMessagesPerBlockCount(duration)
+	for block := range blocks {
+		msgValues.AddBlock(block)
+	}
+
+	retObj := &core.TimeAverageMessagesPerBlockCount{
+		GroupedBy: duration,
+		FinalAverages: make(map[time.Time]int64),
+	}
+
+	for k, v := range msgValues.AverageValues {
+
+		sum := int64(0)
+		for _, m := range v {
+			sum += m
+		}
+		avgVals := float64(sum) / float64(len(v))
+		retObj.FinalAverages[k] = int64(avgVals)
+	}
+
+	return retObj, nil
+}
+
+func AvegareTimeMilestones(blockchain core.Blockchain, globPattern string, start, end uint64) (float64, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return 0, err
+	}
+	timeValues := core.NewTimeMilestonesCounter()
+	for block := range blocks {
+		timeValues.AddBlock(block)
+	}
+
+	var tV []int64
+	for _, val := range *timeValues {
+		tV = append(tV, val)
+	}
+
+	sort.Slice(tV, func(i, j int) bool {
+		return tV[i] < tV[j]
+	})
+
+	differences := make([]int64, len(tV)-1)
+	for i := 1; i < len(tV); i++ {
+		differences[i-1] = tV[i] - tV[i-1]
+	}
+
+	sum := int64(0)
+	for _, diff := range differences {
+		sum += diff
+	}
+	avgTimes := float64(sum) / float64(len(differences))
+
+	return avgTimes, nil
+}
+
+func AvegareTimeMilestonesOverTime(blockchain core.Blockchain, globPattern string, 
+	start, end uint64, duration time.Duration) (*core.TimeAverageMilestonesTimeCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	timeValues := core.NewTimeAverageMilestonesTimeCount(duration)
+	for block := range blocks {
+		timeValues.AddBlock(block)
+	}
+
+	retObj := &core.TimeAverageMilestonesTimeCount{
+		GroupedBy: duration,
+		FinalAverages: make(map[time.Time]int64),
+	}
+
+	for k, v := range timeValues.AverageValues {
+
+		var tV []int64
+		for _, val := range v {
+			tV = append(tV, val)
+		}
+
+		sort.Slice(tV, func(i, j int) bool {
+			return tV[i] < tV[j]
+		})
+
+		differences := make([]int64, len(tV)-1)
+		for i := 1; i < len(tV); i++ {
+			differences[i-1] = tV[i] - tV[i-1]
+		}
+
+		sum := int64(0)
+		for _, diff := range differences {
+			sum += diff
+		}
+		avgTimes := float64(sum) / float64(len(differences))
+		retObj.FinalAverages[k] = int64(avgTimes)
+	}
+
+	return retObj, nil
+}
+
+func GroupSgndTransactionsByIndex(blockchain core.Blockchain, globPattern string, start, end uint64) (*core.GroupedSgnTransactionsByIndexCount, error) {
+	blocks, err := YieldAllBlocks(globPattern, blockchain, start, end)
+	if err != nil {
+		return nil, err
+	}
+	result := core.NewGroupedSgnTransactionsByIndexCount()
+	for block := range blocks {
+		result.AddBlock(block)
+	}
+
+	for k, v := range result.GroupedIndexes {
+		if v < 10 { // Removing INDEXES that only appear a small number of times
+			// TODO: Should I remove more??
+			delete(result.GroupedIndexes, k)
+		}
+	}
+
+	return result, nil
+}

@@ -75,7 +75,7 @@ func fetchBatch(filepath string, start, end uint64, context *HTTPContext) error 
 	}
 	defer gzipFile.Close()
 
-	workersCount := 1
+	workersCount := 10
 	blocksCount := end - start + 1
 	jobs := make(chan uint64, blocksCount)
 	results := make(chan []byte, blocksCount)
