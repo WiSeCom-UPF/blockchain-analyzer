@@ -10,6 +10,7 @@ Currently supported blockchains:
 - [EOS](https://eos.io/)
 - [XRP](https://ripple.com/xrp/)
 - [IOTEX](https://iotex.io/)
+- [IOTA](https://www.iota.org)
 - [Helium](https://www.helium.com/)
 
 ## Installation
@@ -35,6 +36,21 @@ $ cd cmd/blockchain-analyzer
 $ go run main.go iotex fetch -o iotex-blocks.jsonl.gz --start 1 --end 19500000  
 ```
 
+
+To run IOTA related command, run the following:
+```
+# from root of blockchain-analyzer, change directory into cmd/blockchain-analyzer
+$ cd cmd/blockchain-analyzer
+
+# from here run the normal command but using go run main.go
+$ go run main.go iota fetch -o iota-blocks.jsonl.gz --start 6000000 --end 6000100  
+```
+
+### Dependencies
+All Golang dependencies will be installed automatically according to the go.mod file
+#### IOTA
+For  IOTA the external gRocksdb dependency is needed. To install it, follow the instructions [here](https://github.com/linxGnu/grocksdb).
+
 ## Usage
 
 ### Fetching data
@@ -47,6 +63,17 @@ blockchain-analyzer BLOCKCHAIN fetch -o OUTPUT_FILE --start START_BLOCK --end EN
 # for example from 500,000 to 699,999 inclusive:
 blockchain-analyzer eos fetch -o eos-blocks.jsonl.gz --start 500000 --end 699999
 ```
+#### IOTA Data Source
+To donwload IOTA data you can either provide a URL corresponding to a node endpoint or use a RocksDB locally downloaded to fetch the data from it. 
+
+Fetching from Rocks DBs provide better performance and faster downloads than node endpoints. IOTA Foundation RocksDbs can be found [here](https://chrysalis-dbfiles.iota.org/?prefix=dbs/)
+
+To either download from a RocksDB or node endpoint, the following ENV vars have to be set
+```
+Iota_NODE_ENDPOINT      url of the node endpoint
+Iota_ROCKSDB_PATH       local absolute path of the location of the donwloaded RocksDB
+Iota_USE_DATABASE       set it to 'true' to use RocksDB, or 'false' to use a node endpoint
+```
 
 ### Data format
 
@@ -57,6 +84,10 @@ The data has the following format
   - [Tezos](https://tezos.gitlab.io/api/rpc.html#get-block-id)
   - [XRP](https://xrpl.org/ledger.html)
   - [IoTeX](https://docs.iotex.io/basic-concepts/blockchain-actions)
+  - IOTA
+    - For IOTA, there are no blocks per se in the Distributed Ledger as IOTA uses a Directed Acyclic Graph as the data structure for its network. Therefore, in this project to download an IOTA block means to download all the messages that were referenced and confirmed by a given milestone index. For example, the command `go run main.go iota fetch -o iota-blocks.jsonl.gz --start 6000000 --end 6000100` downloads all the messages that were referenced by milestones 6000000 to 6000100 inclusive.  
+    - The data format of the downloaded data corresponds to blocks of data where the block number is the milestone index, and a list of messages. To see the block declaration see file iota/iota.go (line 477).
+    - More info on IOTA'S [design](https://wiki.iota.org/learn/about-iota/tangle/) 
   - [Helium](https://docs.helium.com/api/blockchain/blocks)
   
 - Grouped in files of 100,000 blocks each, suffixed by the block range (e.g. `eos-blocks-500000--599999.jsonl` and `eos-blocks-600000--699999.jsonl` for the above)
@@ -135,6 +166,32 @@ IOTEX SPECIFIC ADDITIONAL COMMANDS
    count-one-to-one-txns         Count transactions between sender and receiver, put in a map
    count-mining-history-over-time Count the miner history as per number of blocks produced over time
 
+IOTA SPECIFIC COMMANDS
+count-messages                   Count the number of IOTA messages in the data
+count-messages-over-time         Count number of messages over time in the data
+count-empty-blocks               Count the number of empty blocks in the data, i.e. blocks with no messages
+count-empty-blocks-over-time     Count number of empty blocks (i.e. blocks with no messages) over time in the data
+count-indexation-payload         Count the number of messages in the data which have an indexation payload
+count-indexation-payload-over-time  Count number of messages with indexation payload over time in the data
+count-signed-transaction-payload Count the number of messages in the data which have a signed transaction payload
+count-signed-transaction-payload-over-time   Count number of messages with signed transaction payload over time in the data
+count-no-payload                 Count the number of messages in the data which have a no payload
+count-no-payload-over-time       Count number of messages with no payload over time in the data
+count-other-payload              Count the number of messages in the data which have a payload other than 0,1,2
+count-conflicts                  Count the number of messages in the data which have a transaction marked as conflicting
+count-conflicts-over-time        Count number of messages which have a transaction marked as conflicting over time in the data
+group-conflicts                  Count and group the number of messages in the data which have a transaction marked as conflicting per conflict type
+group-by-index                   Count and group the number of messages in the data which have indexation payload per index
+group-by-index-over-time         Count and group the number of messages in the data which have indexation payload per index over time
+group-by-output-address          Count and group the number of messages in the data which have transaction payload per outputs address
+average-value-spent-transaction  Returns the average value spent per transaction after computing the mean among all value transactions
+average-value-spent-transaction-over-time Returns the average value spent per transaction after computing the mean among all value transactions over time
+average-time-between-milestones Returns the average time between the issuing of two consecutive milestones
+average-time-between-milestones-over-time Returns the average time between the issuing of two consecutive milestones over time
+group-signed-transactions-by-index  Count and group the number of messages in the data with a signed transaction payload by index
+average-number-messages-per-block Compute the average number of messages (i.e. the number of messages referenced by each milestone) per block in the data
+average-number-messages-per-block-over-time Compute the average number of messages (i.e. the number of messages referenced by each milestone) per block in the data over time
+
 OPTIONS:
    --help, -h  show help (default: false)
 ```
@@ -157,7 +214,8 @@ This includes data from October 1, 2019 to April 30, 2020 for EOS, Tezos and XRP
 | EOS        |    82152667 | 118286375 |
 | XRP        |    50399027 |  55152991 |
 | Tezos      |      630709 |    932530 |
-| IoTeX      |      1      |  19500000 |
+| IoTeX      |      1      |  16600000 |
+| IOTA       |      4      |   6400000 |
 | Helium     |      1      |   1531124 |
 
 Please refer to the [Data format](https://github.com/danhper/blockchain-analyzer#data-format) section above for a description of the data format.

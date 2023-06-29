@@ -756,21 +756,6 @@ var iotaCommands []*cli.Command = []*cli.Command{
 		}),
 	},
 	{
-		Name:  "count-not-solid-messages",
-		Flags: addPatternFlag(addRangeFlags(nil, false)),
-		Usage: "Count the number of messages in the data which have not been marked as solid",
-		Action: makeAction(func(c *cli.Context) error {
-			count, err := processor.CountOtherPayload(
-				iota.New(), c.String("pattern"),
-				c.Uint64("start"), c.Uint64("end"))
-			if err != nil {
-				return err
-			}
-			fmt.Printf("found %d messages not marked as solid\n", count)
-			return nil
-		}),
-	},
-	{
 		Name:  "count-conflicts",
 		Flags: addPatternFlag(addRangeFlags(nil, false)),
 		Usage: "Count the number of messages in the data which have a transaction marked as conflicting",
